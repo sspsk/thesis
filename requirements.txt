@@ -1,3 +1,5 @@
 torch==2.0.1
+torchvision==0.15.2
 smplx[all]
 chumpy @ git+https://github.com/mattloper/chumpy.git@master
+opencv-python==4.8.0.74

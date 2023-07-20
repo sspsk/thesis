@@ -1,7 +1,7 @@
-from Data.base_dataset import BaseDataset
-from Logging.logging import Logger
-from Logging.logging_utils import get_commit,get_branch
-from Models.smpl import get_smpl_model
+from data.eft_dataset import BaseDataset
+from custom_logging.logger import Logger
+from custom_logging.logging_utils import get_commit,get_branch
+from models.smpl import get_smpl_model
 
 bd = BaseDataset()
 l = Logger()
