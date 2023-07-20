@@ -1,0 +1,3 @@
+torch==2.0.1
+smplx[all]
+chumpy @ git+https://github.com/mattloper/chumpy.git@master
