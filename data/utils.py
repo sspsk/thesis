@@ -1,5 +1,57 @@
 import numpy as np
 import cv2
+import torch
+import sys
+from torch.nn import functional as F
+
+def load_mean_parameters(filename,rot6d=False,order="psc"):
+    """
+    Theta has shape (1,85) where:
+    -[0,:3] -> 3 camera parameters
+    -[0,3:75] -> pose parameters
+    -[0,75:] -> shape parameters
+
+    Note: From npz file returns always rot6d representation, even if rot6d is False
+    """
+
+    ext = filename.split(".")[-1]
+
+
+    if ext == "h5":
+        params = h5py.File(filename,'r')
+    elif ext == "npz":
+        params = np.load(filename)
+    else:
+        print("Unkown file extension. Exiting...")
+        sys.exit()
+
+    pose = torch.tensor(params['pose'],dtype=torch.float32)
+    shape = torch.tensor(params['shape'],dtype=torch.float32)
+    cam = torch.tensor([0.9,0.0,0.0],dtype=torch.float32)#the literature initializes the scale of camera with 0.9
+    
+    if ext == "h5":
+        pose[:3] = torch.tensor([0,0,0],dtype=torch.float32)#original paper initializes global rotation as [pi/2,0,0]
+    elif ext == "npz":
+        pass
+        #pose[:6] = torch.tensor([0,0,0,0,0,0],dtype=torch.float32)#original paper initializes global rotation as [pi/2,0,0]
+
+    if rot6d and ext == "h5":
+        pose = pose.unsqueeze(0)#shape [1,72]
+        R = rodrigues_formula(pose)# shape[1,24,3,3]
+        a1 = R[:,:,:,0]
+        a2 = R[:,:,:,1]
+        pose = torch.concat([a1,a2],axis=-1).squeeze(0).flatten()
+
+    
+    if order=="cps":
+        theta = torch.concat([cam,pose,shape])
+    elif order == "psc":
+        theta = torch.concat([pose,shape,cam])
+    else:
+        print("Invalid (cam,pose,shape) order given, must be 'cps' or 'psc'. Exiting...")
+        sys.exit()
+        
+    return theta.unsqueeze(0)
 
 def augm_params(is_train):
         """Get augmentation parameters."""
@@ -141,3 +193,19 @@ def pose_processing(pose, r, f, rotmat=False):
         # (72),float
         pose = pose.astype('float32')
         return pose
+
+def rot6d_to_rotmat(x):
+    """Convert 6D rotation representation to 3x3 rotation matrix.
+    Based on Zhou et al., "On the Continuity of Rotation Representations in Neural Networks", CVPR 2019
+    Input:
+        (B,6) Batch of 6-D rotation representations
+    Output:
+        (B,3,3) Batch of corresponding rotation matrices
+    """
+    x = x.view(-1,3,2)
+    a1 = x[:, :, 0]
+    a2 = x[:, :, 1]
+    b1 = F.normalize(a1)
+    b2 = F.normalize(a2 - torch.einsum('bi,bi->b', b1, a2).unsqueeze(-1) * b1)
+    b3 = torch.cross(b1, b2)
+    return torch.stack((b1, b2, b3), dim=-1)

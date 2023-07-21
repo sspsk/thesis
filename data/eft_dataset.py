@@ -57,10 +57,15 @@ class EFTDataset(Dataset):
 
         pose_params = np.array(deepcopy(self.data[dataset_idx][sample_idx]['parm_pose']))
         pose_params = pose_processing(pose_params,rot,flip,rotmat=True)#1 cause i have change the global rotation
-        
 
         pose_params = torch.tensor(pose_params,dtype=torch.float32) 
         shape_params = torch.tensor(self.data[dataset_idx][sample_idx]['parm_shape'],dtype=torch.float32)
         cam_params = torch.tensor(self.data[dataset_idx][sample_idx]['parm_cam'],dtype=torch.float32)
         
-        return img,(cam_params,pose_params,shape_params)
+        ret_dict = {}
+        ret_dict['img']=img
+        ret_dict['cam']=cam_params
+        ret_dict['pose']=pose_params
+        ret_dict['shape']=shape_params
+
+        return  ret_dict
