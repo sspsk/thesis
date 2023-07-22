@@ -1,20 +1,16 @@
 from exp_tracking.logger import Logger
-from exp_tracking.tracking_utils import get_commit,get_branch, parse_config, is_repo_clean
+from exp_tracking.tracking_utils import get_commit,get_branch, parse_config, is_repo_clean, begin_experiment
 from models.smpl import get_smpl_model
 
-cmt = get_commit()
-print("Commit:",cmt)
-br = get_branch()
-print("Branch:",br)
+import argparse
 
-mysmpl = get_smpl_model()
-output = mysmpl()
-print("Joints shape:",output.joints.shape)
-print("Vertices shape:",output.vertices.shape)
+parser = argparse.ArgumentParser()
+parser.add_argument('--config_file',type=str,default='exp_config.yml')
+parser.add_argument('--force',action='store_true',help='Force to begin experiment with uncommited changes')
+args = parser.parse_args()
 
-cfg = parse_config("exp_config.yml")
-print(cfg)
+cfg,curr_exp_dir =  begin_experiment(args.config_file,force=args.force)
 
-print("Is repo clean?",is_repo_clean())
+print("Experiment done. Check logs at:",curr_exp_dir)
 
-print("exiting...")
+

@@ -1,14 +1,17 @@
 metadata:
-  name: "Initial experiment"
+  name: Initial experiment
+  exp_dir: "/home/sotka/dev/diplomatiki/experiments"
 data:
-  datasets: ["coco14","mpii"]
-  dataset_length: 
+  datasets: 
+  - coco14
+  - mpii
+  dataset_length: null 
 model:
   arch:
-    gtshape: False
+    gtshape: false
   training:
     lr: 3e-4
     bs: 64
-    cuda: True
-    epochs: 100 #to be repleaced with iterations
-    checkpoint: 
+    cuda: true
+    epochs: 100 #to be replaced with iterations
+    checkpoint: null 
