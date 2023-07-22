@@ -1,8 +1,9 @@
 MPII_IMAGES_FOLDER="/home/sotka/dev/diplomatiki/smplpytorch/datasets/MPII/images/"
 COCO14_IMAGES_FOLDER="/home/sotka/dev/diplomatiki/smplpytorch/datasets/COCO14/train2014/"
 COCO14_VAL_IMAGES_FOLDER=None
-MPII_ANNOT_FOLDER="/home/sotka/dev/diplomatiki/smplpytorch/datasets/MPII/annot/"
-COCO14_ANNOT_FOLDER="/home/sotka/dev/diplomatiki/smplpytorch/datasets/COCO14/annotations/"
+MPII_ANNOT_FILE="/home/sotka/dev/diplomatiki/smplpytorch/datasets/MPII/annot/MPII_ver01.json"
+COCO14_ANNOT_FILE="/home/sotka/dev/diplomatiki/smplpytorch/datasets/COCO14/annotations/COCO2014-All-ver01.json"
+COCO14_VAL_ANNOT_FILE="/home/sotka/dev/diplomatiki/smplpytorch/datasets/COCO14/annotations/COCO2014-Val-ver10.json"
 PW3D_ANNOT_FOLDER="/home/sotka/dev/diplomatiki/smplpytorch/datasets/nkolot_files/dataset_extras/"
 PW3D_IMAGE_FOLDER=None
 

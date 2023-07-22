@@ -6,9 +6,7 @@ import config
 from torch.utils.data import DataLoader
 
 def test_eft_dataset():
-    annot_files = [config.COCO14_ANNOT_FOLDER+"COCO2014-All-ver01.json"]
-    img_folders = [config.COCO14_IMAGES_FOLDER]
-    mydataset = EFTDataset(annot_filenames=annot_files,img_folders=img_folders)
+    mydataset = EFTDataset(datasets=['mpii'])
     print("Dataset length:",len(mydataset))
 
     sample = mydataset[0]
@@ -22,9 +20,7 @@ def test_eft_dataset():
     print("EFT Dataset Completed Successfully.")
 
 def test_eft_dataloader():
-    annot_files = [config.COCO14_ANNOT_FOLDER+"COCO2014-All-ver01.json"]
-    img_folders = [config.COCO14_IMAGES_FOLDER]
-    mydataset = EFTDataset(annot_filenames=annot_files,img_folders=img_folders)
+    mydataset = EFTDataset(datasets=['mpii'])
     loader = DataLoader(mydataset,batch_size=4,shuffle=False)
     for batch in loader:
         break

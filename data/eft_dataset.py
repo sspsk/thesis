@@ -9,15 +9,30 @@ from torchvision.transforms import Normalize
 
 #local imports
 from data.utils import augm_params,rgb_processing,pose_processing
+import config
+
+eft_annot_files = {
+    'mpii':config.MPII_ANNOT_FILE,
+    'coco14':config.COCO14_ANNOT_FILE,
+    'coco14_val': config.COCO14_VAL_ANNOT_FILE
+}
+
+eft_img_folders= {
+    'mpii': config.MPII_IMAGES_FOLDER,
+    'coco14': config.COCO14_IMAGES_FOLDER,
+    'coco14_val': config.COCO14_VAL_IMAGES_FOLDER
+}
 
 class EFTDataset(Dataset):
-    def __init__(self,annot_filenames,img_folders,dataset_len=-1,is_train=True):
+    def __init__(self,datasets=['coco14'],dataset_len=-1,is_train=True):
         super().__init__()
-        self.img_folders = img_folders
+
+
+        self.annot_filenames = [eft_annot_files[d] for d in datasets]
+        self.img_folders = [eft_img_folders[d] for d in datasets]
         self.dataset_len = dataset_len
         self.is_train = is_train
         self.normalize_img = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        self.annot_filenames = annot_filenames
         self.data = []
 
         for fname in self.annot_filenames:

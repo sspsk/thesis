@@ -1,6 +1,6 @@
-from exp_tracking.logger import Logger
-from exp_tracking.tracking_utils import get_commit,get_branch, parse_config, is_repo_clean, begin_experiment
-from models.smpl import get_smpl_model
+from exp_tracking.tracking_utils import begin_experiment
+from data.eft_dataset import EFTDataset
+import config
 
 import argparse
 
@@ -11,6 +11,8 @@ args = parser.parse_args()
 
 cfg,curr_exp_dir =  begin_experiment(args.config_file,force=args.force)
 
-print("Experiment done. Check logs at:",curr_exp_dir)
+datasets = cfg['data']['datasets']
 
-
+dataset = EFTDataset(datasets=datasets)
+print(len(dataset))
+print("Dataset created successfully.")
