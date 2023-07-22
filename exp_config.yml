@@ -1,0 +1,14 @@
+metadata:
+  name: "Initial experiment"
+data:
+  datasets: ["coco14","mpii"]
+  dataset_length: 
+model:
+  arch:
+    gtshape: False
+  training:
+    lr: 3e-4
+    bs: 64
+    cuda: True
+    epochs: 100 #to be repleaced with iterations
+    checkpoint: 
