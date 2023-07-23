@@ -1,9 +1,10 @@
-from models.HMR2 import HMR2
+from models.hmr2 import HMR2
+from exp_tracking.tracking_utils import parse_config
 import torch
 
 def test_HMR2_model():
-    config_dict = {}
-    model = HMR2(config_dict=config_dict)
+    cfg = parse_config('exp_config.yml')
+    model = HMR2(cfg=cfg)
 
     dummy_img = torch.randn(1,3,224,224)
     dummy_pose = torch.randn(1,24,3,3)
@@ -11,6 +12,7 @@ def test_HMR2_model():
 
     batch = dict(img=dummy_img,pose=dummy_pose,shape=dummy_shape)
     criterions = model.get_criterion()
+    optimizer = model.get_optimizer()
 
     model.train()
     loss = model.train_step(batch,criterions)

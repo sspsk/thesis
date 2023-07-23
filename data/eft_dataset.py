@@ -24,13 +24,14 @@ eft_img_folders= {
 }
 
 class EFTDataset(Dataset):
-    def __init__(self,datasets=['coco14'],dataset_len=-1,is_train=True):
+    def __init__(self,datasets=['coco14'],is_train=True,cfg={}):
         super().__init__()
 
 
         self.annot_filenames = [eft_annot_files[d] for d in datasets]
         self.img_folders = [eft_img_folders[d] for d in datasets]
-        self.dataset_len = dataset_len
+        self.cfg = cfg
+        self.dataset_len = cfg.get('dataset_length',None)
         self.is_train = is_train
         self.normalize_img = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         self.data = []
@@ -44,7 +45,7 @@ class EFTDataset(Dataset):
         
         
     def __len__(self):
-        if self.dataset_len>0:
+        if self.dataset_len is not None:
             return self.dataset_len
         else:
             return self.data_lens.sum()

@@ -12,14 +12,14 @@ import sys
 
 class Regressor(nn.Module):
 
-    def __init__(self,config_dict):
+    def __init__(self,cfg={}):
         super().__init__()
-        self.config=config_dict
+        self.cfg=cfg
         self.num_preds = 3 + 24*6 + 10
-        self.theta_order = config_dict.get("order","psc")
+        self.theta_order = cfg.get("order","psc")
 
 
-        theta_mean = load_mean_parameters(config.SMPL_MEAN_PARAMS,rot6d=True,order=self.theta_order).to(self.config.get('dev','cpu'))#load the real theta_mean
+        theta_mean = load_mean_parameters(config.SMPL_MEAN_PARAMS,rot6d=True,order=self.theta_order)#load the real theta_mean
         self.register_buffer('theta_mean',theta_mean)
         
         self.relu = nn.ReLU()
@@ -31,7 +31,7 @@ class Regressor(nn.Module):
                 )
         nn.init.xavier_uniform_(self.layers[-1].weight, gain=0.01)
 
-        norelu = config_dict.get('norelu',False)
+        norelu = cfg.get('norelu',False)
         if norelu:
             self.layers[1] = torch.nn.Identity()
             self.layers[4] = torch.nn.Identity()
@@ -72,12 +72,12 @@ class Regressor(nn.Module):
 
 class HMR2(nn.Module):
 
-    def __init__(self,config_dict):
+    def __init__(self,cfg={}):
         super().__init__()
-        self.regressor = Regressor(config_dict)
+        self.regressor = Regressor(cfg=cfg)
         self.encoder = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
         self.encoder.fc = nn.Identity()
-        self.config=config_dict
+        self.cfg=cfg
         self.smpl = get_smpl_model()
 
         
@@ -124,7 +124,7 @@ class HMR2(nn.Module):
         return self.train_step(batch,criterion)
 
     def get_optimizer(self):
-        return Adam(params=self.parameters(),lr=1e-4)
+        return Adam(params=self.parameters(),lr=self.cfg['training']['lr'])
     
     def get_criterion(self):
         #can be a single criterion or a list of them

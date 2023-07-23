@@ -1,6 +1,7 @@
 import subprocess
 import yaml
 import os
+import sys
 
 def get_commit():
     return subprocess.check_output("git log -t".split(" ")).decode("utf-8").split("\n")[0].strip().split(" ")[1]
@@ -44,4 +45,11 @@ def begin_experiment(config_filename,force=False):
     
     return cfg, curr_exp_dir
 
-    
+def get_model_class(cfg):
+    class_str = cfg['model']['type'] 
+    try:
+        model_class = getattr(sys.modules['models'],class_str)
+    except:
+        print("The specified class: {0} does not exist. Check again.".format(class_str))
+        exit()
+    return model_class
