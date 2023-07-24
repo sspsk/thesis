@@ -18,7 +18,6 @@ class Regressor(nn.Module):
         self.num_preds = 3 + 24*6 + 10
         self.theta_order = cfg.get("order","psc")
 
-
         theta_mean = load_mean_parameters(config.SMPL_MEAN_PARAMS,rot6d=True,order=self.theta_order)#load the real theta_mean
         self.register_buffer('theta_mean',theta_mean)
         
@@ -95,7 +94,10 @@ class HMR2(nn.Module):
         pose_gt = batch['pose']
         shape_gt = batch['shape']
 
-        _,pose_pred,shape_pred = self(img)
+        if self.cfg['model'].get('gtshape',False):
+            _,pose_pred,shape_pred = self(img,shape=shape_gt)
+        else:
+            _,pose_pred,shape_pred = self(img)
 
         mat_pose = []
         mat_pose.append(rot6d_to_rotmat(pose_pred[-1].reshape(-1,6)).reshape(-1,24,3,3))
@@ -114,14 +116,47 @@ class HMR2(nn.Module):
                              pose2rot=False)
         
         joints_loss = criterion[1](res_pred.joints[:,:24,:],res_gt.joints[:,:24,:]).sum([1,2]).mean()
-        
-        loss = pose_loss + shape_loss + joints_loss
+
+        if self.cfg['model'].get('gtshape',False):
+            loss = pose_loss + joints_loss
+        else:
+            if  self.cfg['model'].get('with_shape_loss',True):
+                loss = pose_loss + shape_loss + joints_loss
+            else:
+                loss = pose_loss + joints_loss
+
 
         return loss
 
         
     def validation_step(self,batch,criterion):
-        return self.train_step(batch,criterion)
+        #assume that batch and model are on the same device
+        img = batch['img']
+        pose_gt = batch['pose']
+        shape_gt = batch['shape']
+
+        if self.cfg['model'].get('gtshape',False):
+            _,pose_pred,shape_pred = self(img,shape=shape_gt)
+        else:
+            _,pose_pred,shape_pred = self(img)
+
+        mat_pose = []
+        mat_pose.append(rot6d_to_rotmat(pose_pred[-1].reshape(-1,6)).reshape(-1,24,3,3))
+
+        res_pred = self.smpl(global_orient=mat_pose[-1].flatten(2,3)[:,:1,:],
+                             body_pose=mat_pose[-1].flatten(2,3)[:,1:,:],
+                             betas=shape_pred[-1],
+                             pose2rot=False)
+
+        res_gt = self.smpl(global_orient=pose_gt.flatten(2,3)[:,:1,:],
+                             body_pose=pose_gt.flatten(2,3)[:,1:,:],
+                             betas=shape_gt,
+                             pose2rot=False)
+        
+        loss = criterion[1](res_pred.joints[:,:24,:],res_gt.joints[:,:24,:]).sum([1,2]).mean()
+
+        return loss
+
 
     def get_optimizer(self):
         return Adam(params=self.parameters(),lr=self.cfg['training']['lr'])
