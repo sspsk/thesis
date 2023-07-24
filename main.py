@@ -90,7 +90,7 @@ for ep in range(epochs_done+1,epochs_done + 1+ epochs):
         optimizer.step()
 
         train_running_loss += loss.detach().cpu()
-        if batch_num % 4 == 0:
+        if batch_num % 25 == 0:
             print("Epoch: {0}, {1}/{2}, Loss: {3}".format(ep,batch_num,len(train_loader),train_running_loss/batch_num),end=" ")
             for key in loss_dict:
                 print("{0}: {1}".format(key,loss_dict[key]),end=" ")
@@ -115,7 +115,7 @@ for ep in range(epochs_done+1,epochs_done + 1+ epochs):
             print("Val {0}/{1}, Loss: {2}".format(batch_num,len(val_loader),val_running_loss/batch_num),end=" ")
             for key in loss_dict:
                 print("{0}: {1}".format(key,loss_dict[key]),end=" ")
-            print(end="/r")
+            print(end="\r")
     
     val_loss = val_running_loss/batch_num 
     print()
