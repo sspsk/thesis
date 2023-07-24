@@ -90,6 +90,7 @@ class HMR2(nn.Module):
 
     def train_step(self,batch,criterion):
         #assume that batch and model are on the same device
+        loss_dict = {}
         img = batch['img']
         pose_gt = batch['pose']
         shape_gt = batch['shape']
@@ -103,6 +104,8 @@ class HMR2(nn.Module):
         mat_pose.append(rot6d_to_rotmat(pose_pred[-1].reshape(-1,6)).reshape(-1,24,3,3))
 
         pose_loss = criterion[0](mat_pose[-1],pose_gt) 
+        loss_dict['pose_loss'] = pose_loss
+
         shape_loss = criterion[0](shape_pred[-1],shape_gt)
 
         res_pred = self.smpl(global_orient=mat_pose[-1].flatten(2,3)[:,:1,:],
@@ -116,21 +119,25 @@ class HMR2(nn.Module):
                              pose2rot=False)
         
         joints_loss = criterion[1](res_pred.joints[:,:24,:],res_gt.joints[:,:24,:]).sum([1,2]).mean()
+        loss_dict['joints_loss'] = joints_loss
 
         if self.cfg['model'].get('gtshape',False):
             loss = pose_loss + joints_loss
         else:
             if  self.cfg['model'].get('with_shape_loss',True):
                 loss = pose_loss + shape_loss + joints_loss
+                loss_dict['shape_loss'] = shape_loss
             else:
                 loss = pose_loss + joints_loss
 
 
-        return loss
+        return loss, loss_dict
 
         
     def validation_step(self,batch,criterion):
         #assume that batch and model are on the same device
+        loss_dict = {}
+
         img = batch['img']
         pose_gt = batch['pose']
         shape_gt = batch['shape']
@@ -154,8 +161,10 @@ class HMR2(nn.Module):
                              pose2rot=False)
         
         loss = criterion[1](res_pred.joints[:,:24,:],res_gt.joints[:,:24,:]).sum([1,2]).mean()
+        loss_dict['joints_loss'] = loss
 
-        return loss
+
+        return loss, loss_dict
 
 
     def get_optimizer(self):

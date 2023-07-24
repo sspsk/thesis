@@ -84,14 +84,17 @@ for ep in range(epochs_done+1,epochs_done + 1+ epochs):
 
         optimizer.zero_grad()
 
-        loss = model.train_step(batch,criterion)
+        loss, loss_dict = model.train_step(batch,criterion)
         loss.backward()
 
         optimizer.step()
 
         train_running_loss += loss.detach().cpu()
         if batch_num % 4 == 0:
-            print("Epoch: {0}, {1}/{2}, Loss: {3}".format(ep,batch_num,len(train_loader),train_running_loss/batch_num))
+            print("Epoch: {0}, {1}/{2}, Loss: {3}".format(ep,batch_num,len(train_loader),train_running_loss/batch_num),end=" ")
+            for key in loss_dict:
+                print("{0}: {1}".format(key,loss_dict[key]),end=" ")
+            print()
 
     train_loss = train_running_loss/batch_num
     print("Epoch {0}: Train Loss: {1}".format(ep,train_loss))
@@ -105,13 +108,17 @@ for ep in range(epochs_done+1,epochs_done + 1+ epochs):
                 if torch.is_tensor(batch[key]):
                     batch[key] = batch[key].to(DEVICE)
 
-            loss = model.validation_step(batch,criterion)
+            loss,loss_dict = model.validation_step(batch,criterion)
 
             val_running_loss += loss.detach().cpu()
 
-            print("Val {0}/{1}, Loss: {2}".format(batch_num,len(val_loader),val_running_loss/batch_num))
+            print("Val {0}/{1}, Loss: {2}".format(batch_num,len(val_loader),val_running_loss/batch_num),end=" ")
+            for key in loss_dict:
+                print("{0}: {1}".format(key,loss_dict[key]),end=" ")
+            print(end="/r")
     
     val_loss = val_running_loss/batch_num 
+    print()
     print("Epoch {0}: Val Loss: {1}".format(ep,val_loss))
 
     if best_val_loss > val_loss or ep%10 == 0 or ep==final_epoch:

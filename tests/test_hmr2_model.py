@@ -15,13 +15,13 @@ def test_HMR2_model():
     optimizer = model.get_optimizer()
 
     model.train()
-    loss = model.train_step(batch,criterions)
+    loss,loss_dict = model.train_step(batch,criterions)
     assert len(loss.shape) == 0
     print("Train loss:",loss)
 
     model.eval()
     with torch.no_grad():
-        val_loss = model.validation_step(batch,criterions)
+        val_loss,loss_dict = model.validation_step(batch,criterions)
     assert len(val_loss.shape) == 0
     print("Val loss:",val_loss)
 
