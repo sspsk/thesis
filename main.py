@@ -77,13 +77,15 @@ for ep in range(1,1+epochs):
     with torch.no_grad():
         for batch_num,batch in enumerate(val_loader,start=1):
 
-            batch = batch.to(DEVICE)
+            for key in batch:
+                if torch.is_tensor(batch[key]):
+                    batch[key] = batch[key].to(DEVICE)
 
             loss = model.validation_step(batch,criterion)
 
             val_running_loss += loss.detach().cpu()
 
-            print("Val {1}/{2}, Loss: {3}".format(batch_num,len(val_loader),val_running_loss/batch_num))
+            print("Val {0}/{1}, Loss: {2}".format(batch_num,len(val_loader),val_running_loss/batch_num))
     
     
     #if best val loss, checkpointing
