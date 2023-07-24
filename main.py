@@ -56,7 +56,9 @@ for ep in range(1,1+epochs):
 
     for batch_num,batch in enumerate(train_loader,start=1):
 
-        batch = batch.to(DEVICE)
+        for key in batch:
+            if torch.is_tensor(batch[key]):
+                batch[key] = batch[key].to(DEVICE)
 
         optimizer.zero_grad()
 
