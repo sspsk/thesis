@@ -1,5 +1,5 @@
 import config
-from data.utils import load_mean_parameters,rot6d_to_rotmat
+from data.utils import load_mean_parameters,rot6d_to_rotmat,reconstruction_error
 from models.smpl import get_smpl_model
 
 import torch
@@ -165,6 +165,32 @@ class HMR2(nn.Module):
 
 
         return loss, loss_dict
+    
+    def eval_step(self,batch):
+        #return the sum of error for the batch
+
+        img = batch['img']
+        pose_gt = batch['pose']
+        shape_gt = batch['shape']
+
+
+        _,pose,shape = self(img)
+
+        pose_pred = rot6d_to_rotmat(pose[-1].reshape(-1,6)).reshape(-1,24,3,3).flatten(2,3)
+        shape_pred = shape[-1]
+
+
+        res_pred = self.smpl(global_orient=pose_pred[:,:1,:],
+                             body_pose=pose_pred[:,1:,:],
+                             betas=shape_pred,
+                             pose2rot=False)
+
+        res_gt = self.smpl(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
+        
+        return reconstruction_error(res_pred.joints[:,:24].cpu().numpy(),res_gt.joints[:,:24].cpu().numpy(),reduction='sum')
+
+
+
 
 
     def get_optimizer(self):

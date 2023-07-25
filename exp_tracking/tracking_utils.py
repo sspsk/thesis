@@ -53,3 +53,21 @@ def get_model_class(cfg):
         print("The specified class: {0} does not exist. Check again.".format(class_str))
         exit()
     return model_class
+
+def get_checkpoint_path(cfg,type='best'):
+    if type == 'best':
+        file_end = 'best.pt'
+    elif type == 'check':
+        file_end = 'check.pt'
+    elif type == 'last':
+        file_end == 'last.pt'
+    else:
+        print("Unkown type. Check again.")
+        exit()
+    
+    metadata = cfg['metadata']
+    chkpt_path = os.path.join(metadata['exp_dir'],metadata['name'],file_end)
+    if os.path.exists(chkpt_path):
+        return chkpt_path
+    else:
+        return None

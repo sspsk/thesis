@@ -25,4 +25,11 @@ def test_HMR2_model():
     assert len(val_loss.shape) == 0
     print("Val loss:",val_loss)
 
+    batch['pose'] = torch.randn(1,72)
+    with torch.no_grad():
+        eval_loss = model.eval_step(batch)
+    assert len(eval_loss.shape) == 1
+    print("Eval Loss shape:",eval_loss.shape)
+
+
     print("HMR2 model tests completed successfully.")
