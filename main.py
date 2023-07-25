@@ -1,13 +1,26 @@
-from exp_tracking.tracking_utils import begin_experiment,get_model_class
-from data.eft_dataset import EFTDataset
-import models
-import config
-
 import argparse
 import torch
 from torch.utils.data import DataLoader
 import sys
 import os
+import numpy as np
+import random
+
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
+#torch.use_deterministic_algorithms(True)
+torch.backends.cudnn.deterministic=True #so far doesnt affect speed
+#torch.backends.cudnn.benchmark = False
+
+random.seed(42)
+np.random.seed(42)
+
+from exp_tracking.tracking_utils import begin_experiment,get_model_class
+from data.eft_dataset import EFTDataset
+import models
+import config
+
 
 
 parser = argparse.ArgumentParser()
@@ -32,6 +45,7 @@ if torch.cuda.is_available() and cfg['training']['cuda']:
     DEVICE='cuda'
 else:
     DEVICE='cpu'
+print("Device used:",DEVICE)
 
 model_class = get_model_class(cfg=cfg)
 print("Model class used:",model_class)
@@ -71,11 +85,10 @@ if checkpoint is not None:
 epochs = cfg['training']['epochs']
 final_epoch = epochs_done+epochs
 
-train_running_loss = 0.0
 for ep in range(epochs_done+1,epochs_done + 1+ epochs):
 
     model.train()
-
+    train_running_loss = 0.0
     for batch_num,batch in enumerate(train_loader,start=1):
 
         for key in batch:
