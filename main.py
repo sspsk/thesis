@@ -56,7 +56,10 @@ model = model.to(DEVICE)
 optimizer = model.get_optimizer()
 criterion = model.get_criterion()
 
+train_loss = float('inf')
+val_loss = float('inf')
 best_val_loss = float('inf')
+
 epochs_done=0
 
 checkpoint = cfg['training'].get("checkpoint",None)
@@ -81,9 +84,7 @@ if checkpoint is not None:
     print("Previous Best Val Loss:",best_val_loss)
 
 
-
 epochs = cfg['training']['epochs']
-final_epoch = epochs_done+epochs
 
 for ep in range(epochs_done+1,epochs_done + 1+ epochs):
 
@@ -134,7 +135,7 @@ for ep in range(epochs_done+1,epochs_done + 1+ epochs):
     print()
     print("Epoch {0}: Val Loss: {1}".format(ep,val_loss))
 
-    if best_val_loss > val_loss or ep%10 == 0 or ep==final_epoch:
+    if best_val_loss > val_loss or ep%10 == 0:
 
         is_best = False
         if best_val_loss > val_loss: 
@@ -158,9 +159,20 @@ for ep in range(epochs_done+1,epochs_done + 1+ epochs):
             check_filename = os.path.join(curr_exp_dir,"check.pt")
             print("Saving every-10-epochs checkpoint model at:",check_filename)
             torch.save(checkpoint_dict,check_filename)
-        if ep==final_epoch:
-            last_filename = os.path.join(curr_exp_dir,"last.pt")
-            print("Saving last model at:",last_filename)
-            torch.save(checkpoint_dict,last_filename)
+
+
+#Saving the last checkpoint
+checkpoint_dict = {
+    "model_state_dict": model.state_dict(),
+    "optimizer_state_dict": optimizer.state_dict(),
+    "epochs": epochs_done+epochs,
+    "train_loss": train_loss,
+    "val_loss": val_loss,
+    "best_val_loss": best_val_loss,
+}
+
+last_filename = os.path.join(curr_exp_dir,"last.pt")
+print("Saving last model at:",last_filename)
+torch.save(checkpoint_dict,last_filename)
 
 print("Training completed.")

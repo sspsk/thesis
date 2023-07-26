@@ -1,11 +1,13 @@
 from torch import nn
+from torch.optim import Adam
 import torchvision.models.resnet as resnet
 from torchvision.models import ResNet50_Weights
 import torch
 import numpy as np
 import math
 
-from data.utils import rot6d_to_rotmat
+from data.utils import rot6d_to_rotmat,reconstruction_error
+import config
 
 class Bottleneck(nn.Module):
     """ Redefinition of Bottleneck residual block
@@ -48,14 +50,17 @@ class Bottleneck(nn.Module):
 
         return out
 
-class HMR(nn.Module):
+class HMR_EFT(nn.Module):
     """ SMPL Iterative Regressor with ResNet50 backbone
     """
 
-    def __init__(self, block, layers, smpl_mean_params):
+    def __init__(self, block=Bottleneck, layers=[3,4,6,3],cfg={}):
         self.inplanes = 64
-        super(HMR, self).__init__()
+        super(HMR_EFT, self).__init__()
+        
         npose = 24 * 6
+        self.cfg = cfg
+
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(64)
@@ -85,7 +90,7 @@ class HMR(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-        mean_params = np.load(smpl_mean_params)
+        mean_params = np.load(config.SMPL_MEAN_PARAMS)
         init_pose = torch.from_numpy(mean_params['pose'][:]).unsqueeze(0)
         init_shape = torch.from_numpy(mean_params['shape'][:].astype('float32')).unsqueeze(0)
         init_cam = torch.from_numpy(mean_params['cam']).unsqueeze(0)
@@ -155,13 +160,53 @@ class HMR(nn.Module):
             return pred_rotmat, pred_shape, pred_cam
         else:
             return pred_rotmat, pred_shape, pred_cam, xf
+    
+    def get_optimizer(self):
+        return Adam(params=self.parameters(),lr=self.cfg['training']['lr'])
+    
+    def get_criterion(self):
+        return None
 
-def hmr_eft(smpl_mean_params, pretrained=True, return_resnet=False,**kwargs):
+    def eval_step(self,batch):
+        #return the sum of error for the batch
+
+        img = batch['img']
+        pose_gt = batch['pose']
+        shape_gt = batch['shape']
+
+
+        pose,shape,_ = self(img)
+
+        pose_pred = rot6d_to_rotmat(pose[-1].reshape(-1,6)).reshape(-1,24,3,3).flatten(2,3)
+        shape_pred = shape[-1]
+
+
+        res_pred = self.smpl(global_orient=pose_pred[:,:1,:],
+                             body_pose=pose_pred[:,1:,:],
+                             betas=shape_pred,
+                             pose2rot=False)
+
+        res_gt = self.smpl(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
+        
+        return reconstruction_error(res_pred.joints[:,:24].cpu().numpy(),res_gt.joints[:,:24].cpu().numpy(),reduction='sum')
+
+
+
+
+
+    def get_optimizer(self):
+        return Adam(params=self.parameters(),lr=self.cfg['training']['lr'])
+    
+    def get_criterion(self):
+        return None
+        #can be a single criterion or a list of them
+
+def hmr_eft(pretrained=True, return_resnet=False):
     """ Constructs an HMR model with ResNet50 backbone.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = HMR(Bottleneck, [3, 4, 6, 3],  smpl_mean_params, **kwargs)
+    model = HMR_EFT()
     if pretrained:
         resnet_imagenet = resnet.resnet50(pretrained=True)
         model.load_state_dict(resnet_imagenet.state_dict(),strict=False)
@@ -170,12 +215,12 @@ def hmr_eft(smpl_mean_params, pretrained=True, return_resnet=False,**kwargs):
     else:
         return model
 
-def hmr_eft_new(smpl_mean_params, pretrained=True, return_resnet=False, **kwargs):
+def hmr_eft_new(pretrained=True, return_resnet=False):
     """ Constructs an HMR model with ResNet50 backbone.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = HMR(Bottleneck, [3, 4, 6, 3],  smpl_mean_params, **kwargs)
+    model = HMR_EFT()
     if pretrained:
         resnet_imagenet = resnet.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
         model.load_state_dict(resnet_imagenet.state_dict(),strict=False)

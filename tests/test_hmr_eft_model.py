@@ -1,13 +1,12 @@
 import torch
 
 from models.hmr_eft import hmr_eft,hmr_eft_new
-import config
 
 def test_hmr_eft_model():
-    model1,resnet1 = hmr_eft(config.SMPL_MEAN_PARAMS,pretrained=True,return_resnet=True)
+    model1,resnet1 = hmr_eft(pretrained=True,return_resnet=True)
     print("Model 1 initialized successfully.")
 
-    model2,resnet2 = hmr_eft_new(config.SMPL_MEAN_PARAMS,pretrained=True,return_resnet=True)
+    model2,resnet2 = hmr_eft_new(pretrained=True,return_resnet=True)
     print("Model 2 initialized successfully.")
 
     params1 = resnet1.parameters() 
