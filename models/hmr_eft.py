@@ -8,6 +8,7 @@ import math
 
 from data.utils import rot6d_to_rotmat,reconstruction_error
 import config
+from models.smpl import get_smpl_model
 
 class Bottleneck(nn.Module):
     """ Redefinition of Bottleneck residual block
@@ -60,6 +61,7 @@ class HMR_EFT(nn.Module):
         
         npose = 24 * 6
         self.cfg = cfg
+        self.smpl = get_smpl_model()
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
