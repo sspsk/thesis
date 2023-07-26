@@ -11,7 +11,7 @@ def load_mean_parameters(filename,rot6d=False,order="psc"):
     -[0,3:75] -> pose parameters
     -[0,75:] -> shape parameters
 
-    Note: From npz file returns always rot6d representation, even if rot6d is False
+    Note: From npz file returns always rot6d representation, even if rot6d is False. h5py way is depricated.
     """
 
     ext = filename.split(".")[-1]
