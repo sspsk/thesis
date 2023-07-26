@@ -175,10 +175,7 @@ class HMR_EFT(nn.Module):
         shape_gt = batch['shape']
 
 
-        pose,shape,_ = self(img)
-
-        pose_pred = rot6d_to_rotmat(pose[-1].reshape(-1,6)).reshape(-1,24,3,3).flatten(2,3)
-        shape_pred = shape[-1]
+        pose_pred,shape_pred,_ = self(img)
 
 
         res_pred = self.smpl(global_orient=pose_pred[:,:1,:],
