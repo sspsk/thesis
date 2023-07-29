@@ -60,7 +60,7 @@ def get_checkpoint_path(cfg,type='best'):
     elif type == 'check':
         file_end = 'check.pt'
     elif type == 'last':
-        file_end == 'last.pt'
+        file_end = 'last.pt'
     else:
         print("Unkown type. Check again.")
         exit()

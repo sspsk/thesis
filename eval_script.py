@@ -18,6 +18,7 @@ import models
 parser = argparse.ArgumentParser()
 parser.add_argument('--config_file',type=str,default='exp_config.yml')
 parser.add_argument('--force',action='store_true',help='Force to begin experiment with uncommited changes')
+parser.add_argument('--type',default='best',help='Force to begin experiment with uncommited changes')
 args = parser.parse_args()
 
 cfg = parse_config(args.config_file)
@@ -26,7 +27,7 @@ eval_dataset = Dataset_3DPW()
 eval_loader = DataLoader(eval_dataset,batch_size=cfg['training']['bs'],shuffle=False,num_workers=8)
 print("Dataset len:",len(eval_dataset))
 
-checkpoint_path = get_checkpoint_path = get_checkpoint_path(cfg)
+checkpoint_path = get_checkpoint_path = get_checkpoint_path(cfg,type=args.type)
 model_class = get_model_class(cfg)
 
 model = model_class(cfg=cfg)
@@ -35,8 +36,13 @@ model = model_class(cfg=cfg)
 if checkpoint_path is not None:
     print("Loading checkpoint from:",checkpoint_path)
     chkpt = torch.load(checkpoint_path)
-    model.load_state_dict(chkpt['model_state_dict'])
+    try:
+        model.load_state_dict(chkpt['model_state_dict'])
+    except:
+        print("LOG:: Model loading failed. Trying with strict=False. If not expected check the model.")
+        model.load_state_dict(chkpt['model_state_dict'],strict=False)
     epochs = chkpt['epochs']
+    print("Done")
 
 if epochs is not None:
     print("Epochs:",epochs)
