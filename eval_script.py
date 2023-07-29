@@ -6,6 +6,7 @@ import os
 import json
 import argparse
 from smplx.lbs import vertices2joints
+import numpy as np
 
 
 #local imports
@@ -59,6 +60,8 @@ print("Device used:",DEVICE)
 model = model.to(DEVICE)
 model.eval()
 
+j36m_regressor= torch.from_numpy(np.load(config.JOINT_REGRESSOR_H36M)).to(dtype=torch.float32)
+
 rec_error = []
 
 with torch.no_grad():
@@ -71,11 +74,11 @@ with torch.no_grad():
         res_pred,res_gt = model.eval_step(batch)
 
         pred_vertices = res_pred.vertices   
-        pred_h36m_joints = vertices2joints(model.j36m_regressor.to(pred_vertices.device),pred_vertices)
+        pred_h36m_joints = vertices2joints(j36m_regressor.to(pred_vertices.device),pred_vertices)
         pred_joints = pred_h36m_joints[:,constants.H36M_TO_J14,:]
 
         gt_vertices = res_gt.vertices   
-        gt_h36m_joints = vertices2joints(model.j36m_regressor.to(pred_vertices.device),gt_vertices)
+        gt_h36m_joints = vertices2joints(j36m_regressor.to(pred_vertices.device),gt_vertices)
         gt_joints = gt_h36m_joints[:,constants.H36M_TO_J14,:]
 
         loss =  reconstruction_error(pred_joints.cpu().numpy(),gt_joints.cpu().numpy(),reduction='sum')

@@ -8,7 +8,6 @@ from torch import nn
 from torchvision.models import resnet50, ResNet50_Weights
 import numpy as np
 
-
 class Regressor(nn.Module):
 
     def __init__(self,cfg={}):
@@ -21,11 +20,10 @@ class Regressor(nn.Module):
         self.register_buffer('theta_mean',theta_mean)
         
         self.relu = nn.ReLU()
-        self.shape_layers = nn.Sequential(nn.Linear(2048+10,512),self.relu,nn.Dropout(),nn.Linear(512,512),self.relu,nn.Dropout(),nn.Linear(512,10))
         self.layers = nn.Sequential(
                 nn.Linear(2048+self.num_preds,1024),self.relu,nn.Dropout(),
                 nn.Linear(1024,1024),self.relu,nn.Dropout(),
-                nn.Linear(1024,self.num_preds-10)
+                nn.Linear(1024,self.num_preds)
                 )
         nn.init.xavier_uniform_(self.layers[-1].weight, gain=0.01)
 
@@ -36,56 +34,46 @@ class Regressor(nn.Module):
         
         print("MODEL REGRESSOR ARCHITECTURE")
         print(self.layers)
-        print(self.shape_layers)
 
-    def forward(self,x,shape=None):
+    def forward(self,x):
         theta = self.theta_mean.repeat(x.shape[0],1)
-        pose = theta[:,:-13]
-        cam = theta[:,-3:]
 
         cam_res = []
         pose_res = []
         shape_res = []
-
-        if shape is None:
-            shape = theta[:,-13:-3]#parameters are initialized from the mean parameters
-            for i in range(3):
-                input = torch.cat([x,shape],dim=1)
-                shape = shape + self.shape_layers(input)
-                shape_res.append(shape)
-        else:
-            shape_res.append(shape)
-
         for i in range(3):
-            input = torch.cat([x,pose,shape,cam],dim=1)
-            residual = self.layers(input)
-            pose = pose + residual[:,:-3]
-            cam = cam + residual[:,-3:]
-
-            pose_res.append(pose)
-            cam_res.append(cam)
+            input = torch.cat([x,theta],dim=1)
+            theta = theta + self.layers(input)
             
+            if self.theta_order == "psc":
+                cam_res.append(theta[:,-3:])
+                pose_res.append(theta[:,:-13])
+                shape_res.append(theta[:,-13:-3])
+            elif self.theta_order == "cps":
+                cam_res.append(theta[:,:3])
+                pose_res.append(theta[:,3:-10])
+                shape_res.append(theta[:,-10:])
         return [cam_res,pose_res,shape_res]
 
 
-class HMR2(nn.Module):
+class HMR(nn.Module):
 
     def __init__(self,cfg={}):
         super().__init__()
         self.regressor = Regressor(cfg=cfg)
         self.encoder = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
         self.encoder.fc = nn.Identity()
-        self.cfg=cfg
         self.smpl = get_smpl_model()
+        self.cfg=cfg
 
         
-    def forward(self,x,return_feature=False,shape=None):
+    def forward(self,x,return_feature=False):
         enc_feat = self.encoder(x)
         
         if return_feature:
-            return self.regressor(enc_feat,shape=shape) + [enc_feat]
+            return self.regressor(enc_feat) + [enc_feat]
         else:
-            return self.regressor(enc_feat,shape=shape)
+            return self.regressor(enc_feat)
 
     def train_step(self,batch,criterion):
         #assume that batch and model are on the same device
@@ -94,10 +82,7 @@ class HMR2(nn.Module):
         pose_gt = batch['pose']
         shape_gt = batch['shape']
 
-        if self.cfg['model'].get('gtshape',False):
-            _,pose_pred,shape_pred = self(img,shape=shape_gt)
-        else:
-            _,pose_pred,shape_pred = self(img)
+        _,pose_pred,shape_pred = self(img)
 
         mat_pose = []
         mat_pose.append(rot6d_to_rotmat(pose_pred[-1].reshape(-1,6)).reshape(-1,24,3,3))
@@ -120,14 +105,11 @@ class HMR2(nn.Module):
         joints_loss = criterion[1](res_pred.joints[:,:24,:],res_gt.joints[:,:24,:]).sum([1,2]).mean()
         loss_dict['joints_loss'] = joints_loss
 
-        if self.cfg['model'].get('gtshape',False):
-            loss = pose_loss + joints_loss
+        if  self.cfg['model'].get('with_shape_loss',True):
+            loss = pose_loss + shape_loss + joints_loss
+            loss_dict['shape_loss'] = shape_loss
         else:
-            if  self.cfg['model'].get('with_shape_loss',True):
-                loss = pose_loss + shape_loss + joints_loss
-                loss_dict['shape_loss'] = shape_loss
-            else:
-                loss = pose_loss + joints_loss
+            loss = pose_loss + joints_loss
 
 
         return loss, loss_dict
@@ -141,10 +123,7 @@ class HMR2(nn.Module):
         pose_gt = batch['pose']
         shape_gt = batch['shape']
 
-        if self.cfg['model'].get('gtshape',False):
-            _,pose_pred,shape_pred = self(img,shape=shape_gt)
-        else:
-            _,pose_pred,shape_pred = self(img)
+        _,pose_pred,shape_pred = self(img)
 
         mat_pose = []
         mat_pose.append(rot6d_to_rotmat(pose_pred[-1].reshape(-1,6)).reshape(-1,24,3,3))
@@ -192,10 +171,122 @@ class HMR2(nn.Module):
 
 
     def get_optimizer(self):
-        return Adam(params=self.parameters(),lr=self.cfg['training']['lr'])
+        return Adam(params=( p for p in self.parameters() if p.requires_grad),lr=self.cfg['training']['lr'])
     
     def get_criterion(self):
         #can be a single criterion or a list of them
         criterion1 = nn.MSELoss()
         criterion2 = nn.MSELoss(reduction='none')
         return [criterion1,criterion2]
+    
+    
+    
+    
+    
+    
+   
+    
+    
+    
+    
+   
+    
+    
+   
+    
+    
+   
+    
+   
+    
+    
+    
+    
+   
+    
+    
+    
+    
+    
+    
+    
+   
+    
+    
+    
+    
+    
+    
+    
+    
+   
+   
+    
+   
+    
+    
+    
+    
+   
+    
+    
+    
+   
+    
+    
+    
+    
+   
+    
+    
+   
+    
+    
+    
+    
+   
+    
+    
+    
+    
+    
+    
+    
+   
+   
+    
+    
+    
+    
+   
+    
+    
+    
+   
+   
+    
+   
+    
+    
+   
+   
+    
+    
+    
+    
+   
+    
+   
+    
+   
+   
+   
+   
+    
+    
+    
+    
+    
+    
+    
+   

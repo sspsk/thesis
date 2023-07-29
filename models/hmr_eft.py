@@ -64,7 +64,6 @@ class HMR_EFT(nn.Module):
         npose = 24 * 6
         self.cfg = cfg
         self.smpl = get_smpl_model()
-        self.j36m_regressor= torch.from_numpy(np.load(config.JOINT_REGRESSOR_H36M)).to(dtype=torch.float32)
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)

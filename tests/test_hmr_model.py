@@ -1,10 +1,10 @@
-from models.hmr2 import HMR2
+from models.hmr import HMR
 from exp_tracking.tracking_utils import parse_config
 import torch
 
-def test_HMR2_model():
+def test_HMR_model():
     cfg = parse_config('exp_config.yml')
-    model = HMR2(cfg=cfg)
+    model = HMR(cfg=cfg)
 
     dummy_img = torch.randn(1,3,224,224)
     dummy_pose = torch.randn(1,24,3,3)
@@ -27,7 +27,7 @@ def test_HMR2_model():
 
     batch['pose'] = torch.randn(1,72)
     with torch.no_grad():
-        pred_res,gt_res = model.eval_step(batch)
+        pred_res,gt_res= model.eval_step(batch)
 
 
     print("HMR2 model tests completed successfully.")

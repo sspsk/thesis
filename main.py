@@ -70,7 +70,10 @@ if checkpoint is not None:
     chkpt = torch.load(checkpoint)
 
     model.load_state_dict(chkpt['model_state_dict'])
-    optimizer.load_state_dict(chkpt['optimizer_state_dict'])
+    try:
+        optimizer.load_state_dict(chkpt['optimizer_state_dict'])
+    except:
+        print("Unable to load optimizer state. If you provided one, check again.")
 
     epochs_done = chkpt['epochs']
 
