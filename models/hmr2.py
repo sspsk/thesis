@@ -1,4 +1,5 @@
 import config
+import constants
 from data.utils import load_mean_parameters,rot6d_to_rotmat,reconstruction_error
 from models.smpl import get_smpl_model
 
@@ -8,6 +9,8 @@ from torch import nn
 from torchvision.models import resnet50, ResNet50_Weights
 import torchvision.transforms as T
 import sys
+from smplx.lbs import vertices2joints
+import numpy as np
 
 
 class Regressor(nn.Module):
@@ -78,6 +81,7 @@ class HMR2(nn.Module):
         self.encoder.fc = nn.Identity()
         self.cfg=cfg
         self.smpl = get_smpl_model()
+        self.j36m_regressor= torch.from_numpy(np.load(config.JOINT_REGRESSOR_H36M)).to(dtype=torch.float32)
 
         
     def forward(self,x,return_feature=False,shape=None):
@@ -186,9 +190,8 @@ class HMR2(nn.Module):
                              pose2rot=False)
 
         res_gt = self.smpl(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
-        
-        return reconstruction_error(res_pred.joints[:,:24].cpu().numpy(),res_gt.joints[:,:24].cpu().numpy(),reduction='sum')
 
+        return res_pred,res_gt
 
 
 

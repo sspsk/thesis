@@ -5,6 +5,7 @@ import torch
 import os
 import json
 import argparse
+from smplx.lbs import vertices2joints
 
 
 #local imports
@@ -13,6 +14,7 @@ import config
 from data.utils import rot6d_to_rotmat,reconstruction_error
 from exp_tracking.tracking_utils import get_checkpoint_path, get_model_class,parse_config
 import models
+import constants
 
 
 parser = argparse.ArgumentParser()
@@ -66,8 +68,18 @@ with torch.no_grad():
             if torch.is_tensor(batch[key]):
                 batch[key] = batch[key].to(DEVICE)
 
-        loss = model.eval_step(batch)
-        #rec_error.append(reconstruction_error(Jtr_pred.cpu().numpy(),Jtr_gt.cpu().numpy(),reduction='sum'))
+        res_pred,res_gt = model.eval_step(batch)
+
+        pred_vertices = res_pred.vertices   
+        pred_h36m_joints = vertices2joints(model.j36m_regressor.to(pred_vertices.device),pred_vertices)
+        pred_joints = pred_h36m_joints[:,constants.H36M_TO_J14,:]
+
+        gt_vertices = res_gt.vertices   
+        gt_h36m_joints = vertices2joints(model.j36m_regressor.to(pred_vertices.device),gt_vertices)
+        gt_joints = gt_h36m_joints[:,constants.H36M_TO_J14,:]
+
+        loss =  reconstruction_error(pred_joints.cpu().numpy(),gt_joints.cpu().numpy(),reduction='sum')
+
         rec_error.append(loss)
         print("Batch: {0}/{1}".format(bn,len(eval_loader)),end='\r')
         
