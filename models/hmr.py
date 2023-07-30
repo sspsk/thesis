@@ -1,6 +1,7 @@
 import config
 from data.utils import load_mean_parameters,rot6d_to_rotmat
 from models.smpl import get_smpl_model
+from models.backbone import CustomResNet
 
 import torch
 from torch.optim import Adam
@@ -61,8 +62,15 @@ class HMR(nn.Module):
     def __init__(self,cfg={}):
         super().__init__()
         self.regressor = Regressor(cfg=cfg)
-        self.encoder = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
-        self.encoder.fc = nn.Identity()
+
+        if cfg['model'].get('custom_backbone',False):
+            print("LOG:: Using custom BackBone")
+            self.encoder = CustomResNet()
+            pretrained_model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
+            self.encoder.load_state_dict(pretrained_model.state_dict(),strict=False)
+        else:
+            self.encoder = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
+            self.encoder.fc = nn.Identity()
         self.smpl = get_smpl_model()
         self.cfg=cfg
 

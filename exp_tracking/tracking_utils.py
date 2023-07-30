@@ -71,3 +71,12 @@ def get_checkpoint_path(cfg,type='best'):
         return chkpt_path
     else:
         return None
+
+def log_print(*args,**kwargs):
+    cfg = kwargs['cfg']
+    end = kwargs.get('end','\n')
+    msg = " ".join([str(item) for item in args])
+    log_filename = os.path.join(cfg['metadata']['exp_dir'],cfg['metadata']['name'],'cmd_logs.txt')
+    with open(log_filename,'a') as f:
+        f.write(msg+'\n')
+    print(msg,end=end)

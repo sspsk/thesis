@@ -30,4 +30,4 @@ def test_HMR_model():
         pred_res,gt_res= model.eval_step(batch)
 
 
-    print("HMR2 model tests completed successfully.")
+    print("HMR model tests completed successfully.")

@@ -25,9 +25,9 @@ def display_model(
     verts, joints = model_info['verts'][batch_idx], model_info['joints'][
         batch_idx]
     if model_faces is None:
-        ax.scatter(verts[:, 0], verts[:, 1], verts[:, 2], alpha=0.2)
+        ax.scatter(verts[:, 0], verts[:, 1], verts[:, 2], alpha=0.1)
     else:
-        mesh = Poly3DCollection(verts[model_faces], alpha=0.2)
+        mesh = Poly3DCollection(verts[model_faces], alpha=0.1)
         face_color = (141 / 255, 184 / 255, 226 / 255)
         edge_color = (50 / 255, 50 / 255, 50 / 255)
         mesh.set_edgecolor(edge_color)
