@@ -75,6 +75,14 @@ if checkpoint is not None:
     except:
         log_print("Unable to load optimizer state. If you provided one, check again.",cfg=cfg)
 
+    try:
+        torch.set_rng_state(chkpt['torch_rng_state'])
+        torch.cuda.set_rng_state(chkpt['torch_cuda_rng_state'])
+        random.setstate(chkpt['python_rng_state'])
+        np.random.set_state(chkpt['np_rng_state'])
+    except:
+        log_print("Unable to load rng states. If you provided states, check again.",cfg=cfg)
+        
     epochs_done = chkpt['epochs']
 
     train_loss = chkpt['train_loss']
@@ -85,7 +93,6 @@ if checkpoint is not None:
     log_print("Previous Train Loss:",train_loss,cfg=cfg)
     log_print("Previous Val Loss:",val_loss,cfg=cfg)
     log_print("Previous Best Val Loss:",best_val_loss,cfg=cfg)
-
 
 epochs = cfg['training']['epochs']
 
@@ -152,6 +159,10 @@ for ep in range(epochs_done+1,epochs_done + 1+ epochs):
             "train_loss": train_loss,
             "val_loss": val_loss,
             "best_val_loss": best_val_loss,
+            "torch_rng_state": torch.get_rng_state(),
+            "torch_cuda_rng_state": torch.cuda.get_rng_state(),
+            "python_rng_state": random.getstate(),
+            "np_rng_state": np.random.get_state()
         }
 
         if is_best:
@@ -172,6 +183,10 @@ checkpoint_dict = {
     "train_loss": train_loss,
     "val_loss": val_loss,
     "best_val_loss": best_val_loss,
+    "torch_rng_state": torch.get_rng_state(),
+    "torch_cuda_rng_state": torch.cuda.get_rng_state(),
+    "python_rng_state": random.getstate(),
+    "np_rng_state": np.random.get_state()
 }
 
 last_filename = os.path.join(curr_exp_dir,"last.pt")

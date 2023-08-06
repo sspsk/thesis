@@ -28,7 +28,7 @@ class Regressor(nn.Module):
                 )
         nn.init.xavier_uniform_(self.layers[-1].weight, gain=0.01)
 
-        norelu = cfg.get('norelu',False)
+        norelu = cfg['model'].get('norelu',False)
         if norelu:
             self.layers[1] = torch.nn.Identity()
             self.layers[4] = torch.nn.Identity()
