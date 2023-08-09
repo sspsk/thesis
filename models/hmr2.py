@@ -1,5 +1,6 @@
 import config
 from data.utils import load_mean_parameters,rot6d_to_rotmat
+from models.backbone import CustomResNet
 from models.smpl import get_smpl_model
 
 import torch
@@ -29,10 +30,12 @@ class Regressor(nn.Module):
                 )
         nn.init.xavier_uniform_(self.layers[-1].weight, gain=0.01)
 
-        norelu = cfg.get('norelu',False)
+        norelu = cfg['model'].get('norelu',False)
         if norelu:
             self.layers[1] = torch.nn.Identity()
             self.layers[4] = torch.nn.Identity()
+            self.shape_layers[1] = torch.nn.Identity()
+            self.shape_layers[4] = torch.nn.Identity()
         
         print("MODEL REGRESSOR ARCHITECTURE")
         print(self.layers)
@@ -73,8 +76,14 @@ class HMR2(nn.Module):
     def __init__(self,cfg={}):
         super().__init__()
         self.regressor = Regressor(cfg=cfg)
-        self.encoder = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
-        self.encoder.fc = nn.Identity()
+        if cfg['model'].get('custom_backbone',False):
+            print("LOG:: Using custom BackBone")
+            self.encoder = CustomResNet()
+            pretrained_model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
+            self.encoder.load_state_dict(pretrained_model.state_dict(),strict=False)
+        else:
+            self.encoder = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
+            self.encoder.fc = nn.Identity()
         self.cfg=cfg
         self.smpl = get_smpl_model()
 
@@ -166,7 +175,7 @@ class HMR2(nn.Module):
         return loss, loss_dict
     
     def eval_step(self,batch):
-        #return the sum of error for the batch
+        #return the gt & predicted smpl joints
 
         img = batch['img']
         pose_gt = batch['pose']
