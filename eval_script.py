@@ -10,7 +10,7 @@ import numpy as np
 
 
 #local imports
-from data.eval_dataset import Dataset_3DPW
+from data.eval_dataset import Dataset_3DPW,Dataset_MPII
 import config
 from data.utils import rot6d_to_rotmat,reconstruction_error
 from exp_tracking.tracking_utils import get_checkpoint_path, get_model_class,parse_config
@@ -21,12 +21,19 @@ import constants
 parser = argparse.ArgumentParser()
 parser.add_argument('--config_file',type=str,default='exp_config.yml')
 parser.add_argument('--force',action='store_true',help='Force to begin experiment with uncommited changes')
-parser.add_argument('--type',default='best',help='Force to begin experiment with uncommited changes')
+parser.add_argument('--type',default='best',help='Opt to eval a best/check/last checkpoint.')
+parser.add_argument('--eval_mpii',action='store_true',help='Eval on MPII(shape related experiments)')
 args = parser.parse_args()
 
 cfg = parse_config(args.config_file)
 
-eval_dataset = Dataset_3DPW()
+if args.eval_mpii:
+    eval_dataset = Dataset_MPII()
+    print("Eval Dataset: MPII")
+else:
+    eval_dataset = Dataset_3DPW()
+    print("Eval Dataset: 3DPW")
+    
 eval_loader = DataLoader(eval_dataset,batch_size=cfg['training']['bs'],shuffle=False,num_workers=8)
 print("Dataset len:",len(eval_dataset))
 

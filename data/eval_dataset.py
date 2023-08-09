@@ -9,6 +9,7 @@ import json
 
 from data.utils import crop
 import config
+from data.eft_dataset import EFTDataset
 
 class Dataset_3DPW(Dataset):
     def __init__(self,ds_len=None):
@@ -49,3 +50,11 @@ class Dataset_3DPW(Dataset):
         shape_params = torch.tensor(self.data[idx]['shape'],dtype=torch.float32)
         
         return dict(img=img,pose=pose_params,shape=shape_params)
+    
+
+class Dataset_MPII(EFTDataset):
+    def __init__(self,cfg={}):
+        super().__init__(datasets=['mpii'],is_train=False,cfg=cfg)
+
+    def __getitem__(self,idx):
+        return super().__getitem__(idx)

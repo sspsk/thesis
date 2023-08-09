@@ -182,7 +182,10 @@ class HMR2(nn.Module):
         shape_gt = batch['shape']
 
 
-        _,pose,shape = self(img)
+        if self.cfg['model'].get('gtshape',False):
+            _,pose,shape = self(img,shape=shape_gt)
+        else:
+            _,pose,shape= self(img)
 
         pose_pred = rot6d_to_rotmat(pose[-1].reshape(-1,6)).reshape(-1,24,3,3).flatten(2,3)
         shape_pred = shape[-1]
@@ -193,7 +196,13 @@ class HMR2(nn.Module):
                              betas=shape_pred,
                              pose2rot=False)
 
-        res_gt = self.smpl(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
+        if pose_gt.ndim < 4:#some datasets return axis-angle
+            res_gt = self.smpl(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
+        else:#others return matrices
+            res_gt = self.smpl(global_orient=pose_gt.flatten(2,3)[:,:1,:],
+                                 body_pose=pose_gt.flatten(2,3)[:,1:,:],
+                                 betas=shape_gt,
+                                 pose2rot=False)
 
         return res_pred,res_gt
 

@@ -171,7 +171,13 @@ class HMR(nn.Module):
                              betas=shape_pred,
                              pose2rot=False)
 
-        res_gt = self.smpl(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
+        if pose_gt.ndim < 4:#some datasets return axis-angle
+            res_gt = self.smpl(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
+        else:#others return matrices
+            res_gt = self.smpl(global_orient=pose_gt.flatten(2,3)[:,:1,:],
+                                 body_pose=pose_gt.flatten(2,3)[:,1:,:],
+                                 betas=shape_gt,
+                                 pose2rot=False)
 
         return res_pred,res_gt
 

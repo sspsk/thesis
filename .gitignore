@@ -159,7 +159,8 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-Data/__pycache__/
-Logging/__pycache__/
+data/__pycache__/
+dogging/__pycache__/
 config.py
 *.yml
+temp/
