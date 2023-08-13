@@ -277,3 +277,9 @@ def reconstruction_error(S1, S2, reduction='mean'):
     elif reduction == 'sum':
         re = re.sum()
     return re
+
+def reconstruction_error_per_part(S1, S2):
+    """Do Procrustes alignment and compute reconstruction error."""
+    S1_hat = compute_similarity_transform_batch(S1, S2)
+    re = np.sqrt( ((S1_hat - S2)** 2).sum(axis=-1))
+    return re
