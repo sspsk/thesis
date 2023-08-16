@@ -8,7 +8,7 @@ from copy import deepcopy
 from torchvision.transforms import Normalize
 
 #local imports
-from data.utils import augm_params,rgb_processing,pose_processing
+from data.utils import augm_params,rgb_processing,pose_processing,kp_processing
 import config
 
 eft_annot_files = {
@@ -67,9 +67,13 @@ class EFTDataset(Dataset):
         img = cv2.imread(self.img_folders[dataset_idx]+idx_filename)
         img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
 
-        img = rgb_processing(img, center, sc*scale, rot, flip, pn)
+        img,M = rgb_processing(img, center, sc*scale, rot, flip, pn)
         img = torch.from_numpy(img).float()
         img = self.normalize_img(img)
+
+        keypoints2d = np.array(self.data[dataset_idx][sample_idx]['gt_keypoint_2d'])
+        visibility2d = torch.from_numpy(keypoints2d[:,2])
+        keypoints2d = torch.from_numpy(kp_processing(keypoints2d[:,:2],flip,M))
 
         pose_params = np.array(deepcopy(self.data[dataset_idx][sample_idx]['parm_pose']))
         pose_params = pose_processing(pose_params,rot,flip,rotmat=True)#1 cause i have change the global rotation
@@ -83,5 +87,7 @@ class EFTDataset(Dataset):
         ret_dict['cam']=cam_params
         ret_dict['pose']=pose_params
         ret_dict['shape']=shape_params
+        ret_dict['keypoints2d'] = keypoints2d
+        ret_dict['visibility2d'] = visibility2d
 
         return  ret_dict

@@ -123,11 +123,11 @@ def crop(img,center,scale,res,rot=0):
 
     new_img_cropped = cv2.warpAffine(img,M,(new_cols,new_rows)).astype(np.float32)
 
-    return new_img_cropped
+    return new_img_cropped,M
 
 def rgb_processing(rgb_img,center,scale,rot,flip,pn):
     IMG_RES=224
-    rgb_img = crop(rgb_img,center,scale,[IMG_RES,IMG_RES],rot=rot)
+    rgb_img,M = crop(rgb_img,center,scale,[IMG_RES,IMG_RES],rot=rot)
 
     if flip:
         rgb_img = flip_img(rgb_img)
@@ -138,7 +138,7 @@ def rgb_processing(rgb_img,center,scale,rot,flip,pn):
 
     #! permute and normalize
     rgb_img = np.transpose(rgb_img,(2,0,1))/255.0
-    return rgb_img
+    return rgb_img,M
 
 def flip_pose(pose,rotmat=False):
     """Flip pose.
@@ -209,6 +209,16 @@ def rot6d_to_rotmat(x):
     b2 = F.normalize(a2 - torch.einsum('bi,bi->b', b1, a2).unsqueeze(-1) * b1)
     b3 = torch.cross(b1, b2)
     return torch.stack((b1, b2, b3), dim=-1)
+
+def kp_processing(kp,flip,trans):
+    num_joints = kp.shape[0]
+    kp = np.pad(kp,((0,0),(0,1)),constant_values=1.0) #shape : [49,3]
+
+    new_kp = trans @ kp.T #shape: [2,49]
+
+    if flip:
+        new_kp[0,:] = 223 - new_kp[0,:]
+    return new_kp.T
 
 
 def compute_similarity_transform(S1, S2):
