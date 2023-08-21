@@ -220,6 +220,16 @@ def kp_processing(kp,flip,trans):
         new_kp[0,:] = 223 - new_kp[0,:]
     return new_kp.T
 
+def orth_proj(X,camera):
+    """
+      input:
+      -X (B,N,3) the N joint 3d position for each sample in Batch
+      -camera (B,3) the (s,R) parameters for each sample. s is a number, R is a 2D vector
+     output:
+     - the 2D projected joints for each sample in Batch. Shape: (B,N,2)
+    """
+    return camera.view(-1,1,3)[:,:,0:1] * X[:,:,:2] + camera.view(-1,1,3)[:,:,1:]
+
 
 def compute_similarity_transform(S1, S2):
     """

@@ -72,8 +72,8 @@ class EFTDataset(Dataset):
         img = self.normalize_img(img)
 
         keypoints2d = np.array(self.data[dataset_idx][sample_idx]['gt_keypoint_2d'])
-        visibility2d = torch.from_numpy(keypoints2d[:,2])
-        keypoints2d = torch.from_numpy(kp_processing(keypoints2d[:,:2],flip,M))
+        visibility2d = torch.from_numpy(keypoints2d[:,2]).to(torch.float32)
+        keypoints2d = torch.from_numpy(kp_processing(keypoints2d[:,:2],flip,M)).to(torch.float32)
 
         pose_params = np.array(deepcopy(self.data[dataset_idx][sample_idx]['parm_pose']))
         pose_params = pose_processing(pose_params,rot,flip,rotmat=True)#1 cause i have change the global rotation

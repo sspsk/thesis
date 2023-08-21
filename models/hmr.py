@@ -1,5 +1,6 @@
 import config
-from data.utils import load_mean_parameters,rot6d_to_rotmat
+import constants
+from data.utils import load_mean_parameters,rot6d_to_rotmat,orth_proj
 from models.smpl import get_smpl_model
 from models.backbone import CustomResNet
 
@@ -71,7 +72,7 @@ class HMR(nn.Module):
         else:
             self.encoder = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
             self.encoder.fc = nn.Identity()
-        self.smpl = get_smpl_model()
+        self.smpl = get_smpl_model(use_feet_keypoints=True,use_hands=True,extra=True)
         self.cfg=cfg
 
         
@@ -89,8 +90,10 @@ class HMR(nn.Module):
         img = batch['img']
         pose_gt = batch['pose']
         shape_gt = batch['shape']
+        gt_kp = batch['keypoints2d']
+        vis = batch['visibility2d']
 
-        _,pose_pred,shape_pred = self(img)
+        cam_pred,pose_pred,shape_pred = self(img)
 
         mat_pose = []
         mat_pose.append(rot6d_to_rotmat(pose_pred[-1].reshape(-1,6)).reshape(-1,24,3,3))
@@ -98,7 +101,6 @@ class HMR(nn.Module):
         pose_loss = criterion[0](mat_pose[-1],pose_gt) 
         loss_dict['pose_loss'] = pose_loss
 
-        shape_loss = criterion[0](shape_pred[-1],shape_gt)
 
         res_pred = self.smpl(global_orient=mat_pose[-1].flatten(2,3)[:,:1,:],
                              body_pose=mat_pose[-1].flatten(2,3)[:,1:,:],
@@ -110,14 +112,24 @@ class HMR(nn.Module):
                              betas=shape_gt,
                              pose2rot=False)
         
-        joints_loss = criterion[1](res_pred.joints[:,:24,:],res_gt.joints[:,:24,:]).sum([1,2]).mean()
+        joints_loss = criterion[1](res_pred.joints,res_gt.joints).sum([1,2]).mean()#3d keypoints loss on all 49 joints of custom smpl
         loss_dict['joints_loss'] = joints_loss
 
-        if  self.cfg['model'].get('with_shape_loss',True):
-            loss = pose_loss + shape_loss + joints_loss
+
+        loss = pose_loss + joints_loss
+
+        if self.cfg['model'].get('with_shape_loss',True):
+            shape_loss = criterion[0](shape_pred[-1],shape_gt)
+            loss += shape_loss
             loss_dict['shape_loss'] = shape_loss
-        else:
-            loss = pose_loss + joints_loss
+        
+        if self.cfg['model'].get('with_reprojection_loss',True):
+            pred_kp = orth_proj(res_pred.joints,cam_pred[-1])
+            #normalizing gt_kp to [-1,1]
+            gt_kp = gt_kp/(constants.IMG_RES/2) - 1.0
+            reprojection_loss = (criterion[1](pred_kp,gt_kp) * vis.unsqueeze(-1)).mean()
+            loss += reprojection_loss
+            loss_dict['reprojection_loss'] = reprojection_loss
 
 
         return loss, loss_dict
@@ -146,7 +158,7 @@ class HMR(nn.Module):
                              betas=shape_gt,
                              pose2rot=False)
         
-        loss = criterion[1](res_pred.joints[:,:24,:],res_gt.joints[:,:24,:]).sum([1,2]).mean()
+        loss = criterion[1](res_pred.joints,res_gt.joints).sum([1,2]).mean()
         loss_dict['joints_loss'] = loss
 
 
