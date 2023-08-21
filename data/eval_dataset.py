@@ -39,7 +39,7 @@ class Dataset_3DPW(Dataset):
         img = cv2.imread(self.img_folder+idx_filename)
         img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
 
-        img = crop(img,center,scale,res=(224,224),rot=0).astype(np.uint8)
+        img = crop(img,center,scale,res=(224,224),rot=0)[0].astype(np.uint8)
 
         img = self.transforms(img)
 
