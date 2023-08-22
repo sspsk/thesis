@@ -16,6 +16,7 @@ from data.utils import rot6d_to_rotmat,reconstruction_error
 from exp_tracking.tracking_utils import get_checkpoint_path, get_model_class,parse_config
 import models
 import constants
+from models.smpl import get_smpl_model
 
 
 parser = argparse.ArgumentParser()
@@ -56,6 +57,8 @@ if checkpoint_path is not None:
 
 if epochs is not None:
     print("Epochs:",epochs)
+
+model.smpl_male = get_smpl_model(gender='male')
 
 if torch.cuda.is_available() and cfg['training']['cuda']:
     DEVICE='cuda'

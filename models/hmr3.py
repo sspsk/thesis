@@ -1,5 +1,6 @@
 import config
-from data.utils import load_mean_parameters,rot6d_to_rotmat
+import constants
+from data.utils import load_mean_parameters,rot6d_to_rotmat,orth_proj
 from models.backbone import CustomResNet
 from models.smpl import get_smpl_model
 
@@ -22,11 +23,10 @@ class Regressor(nn.Module):
         self.register_buffer('theta_mean',theta_mean)
         
         self.relu = nn.ReLU()
-        self.shape_layers = nn.Sequential(nn.Linear(2048+10,512),self.relu,nn.Dropout(),nn.Linear(512,512),self.relu,nn.Dropout(),nn.Linear(512,10))
         self.layers = nn.Sequential(
-                nn.Linear(2048+self.num_preds,1024),self.relu,nn.Dropout(),
+                nn.Linear(2048+23+self.num_preds,1024),self.relu,nn.Dropout(),
                 nn.Linear(1024,1024),self.relu,nn.Dropout(),
-                nn.Linear(1024,self.num_preds-10)
+                nn.Linear(1024,self.num_preds)
                 )
         nn.init.xavier_uniform_(self.layers[-1].weight, gain=0.01)
 
@@ -34,44 +34,34 @@ class Regressor(nn.Module):
         if norelu:
             self.layers[1] = torch.nn.Identity()
             self.layers[4] = torch.nn.Identity()
-            self.shape_layers[1] = torch.nn.Identity()
-            self.shape_layers[4] = torch.nn.Identity()
         
         print("MODEL REGRESSOR ARCHITECTURE")
         print(self.layers)
-        print(self.shape_layers)
 
-    def forward(self,x,shape=None):
+    def forward(self,x,joints_feat=None):
         theta = self.theta_mean.repeat(x.shape[0],1)
-        pose = theta[:,:-13]
-        cam = theta[:,-3:]
 
         cam_res = []
         pose_res = []
         shape_res = []
 
-        if shape is None:
-            shape = theta[:,-13:-3]#parameters are initialized from the mean parameters
-            for i in range(3):
-                input = torch.cat([x,shape],dim=1)
-                shape = shape + self.shape_layers(input)
-                shape_res.append(shape)
-        else:
-            shape_res.append(shape)
-
         for i in range(3):
-            input = torch.cat([x,pose,shape,cam],dim=1)
-            residual = self.layers(input)
-            pose = pose + residual[:,:-3]
-            cam = cam + residual[:,-3:]
-
-            pose_res.append(pose)
-            cam_res.append(cam)
+            input = torch.cat([x,joints_feat,theta],dim=1)
+            theta = theta + self.layers(input)
             
+            if self.theta_order == "psc":
+                cam_res.append(theta[:,-3:])
+                pose_res.append(theta[:,:-13])
+                shape_res.append(theta[:,-13:-3])
+            elif self.theta_order == "cps":
+                cam_res.append(theta[:,:3])
+                pose_res.append(theta[:,3:-10])
+                shape_res.append(theta[:,-10:])
+                
         return [cam_res,pose_res,shape_res]
 
 
-class HMR2(nn.Module):
+class HMR3(nn.Module):
 
     def __init__(self,cfg={}):
         super().__init__()
@@ -85,19 +75,17 @@ class HMR2(nn.Module):
             self.encoder = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
             self.encoder.fc = nn.Identity()
         self.cfg=cfg
-        if cfg['model'].get('use_extra_smpl',False):
-            self.smpl = get_smpl_model(use_feet_keypoints=True,use_hands=True,extra=True)
-        else:
-            self.smpl = get_smpl_model()
+        self.smpl = get_smpl_model(use_feet_keypoints=True,use_hands=True,extra=True)
+        self.base_smpl = get_smpl_model()
 
         
-    def forward(self,x,return_feature=False,shape=None):
+    def forward(self,x,return_feature=False,joints_feat=None):
         enc_feat = self.encoder(x)
         
         if return_feature:
-            return self.regressor(enc_feat,shape=shape) + [enc_feat]
+            return self.regressor(enc_feat,joints_feat=joints_feat) + [enc_feat]
         else:
-            return self.regressor(enc_feat,shape=shape)
+            return self.regressor(enc_feat,joints_feat=joints_feat)
 
     def train_step(self,batch,criterion):
         #assume that batch and model are on the same device
@@ -105,11 +93,25 @@ class HMR2(nn.Module):
         img = batch['img']
         pose_gt = batch['pose']
         shape_gt = batch['shape']
+        gt_kp = batch['keypoints2d']
+        vis = batch['visibility2d']
 
-        if self.cfg['model'].get('gtshape',False):
-            _,pose_pred,shape_pred = self(img,shape=shape_gt)
-        else:
-            _,pose_pred,shape_pred = self(img)
+        #on the fly get the joints distance features
+        with torch.no_grad():
+            base_smpl = self.base_smpl(global_orient=pose_gt.flatten(2,3)[:,:1,:],
+                                 body_pose=pose_gt.flatten(2,3)[:,1:,:],
+                                 betas=shape_gt,
+                                 pose2rot=False)
+            base_smpl_joints = base_smpl.joints[:,1:24,:] #has shape of [b,23,3], take all except the pelvis
+
+            parents = self.base_smpl.parents[1:].unsqueeze(-1).unsqueeze(0)# has shape of [1,23,1]
+            diff = base_smpl_joints - torch.take_along_dim(base_smpl.joints,parents,dim=1)
+
+            joints_feat = torch.linalg.norm(diff,dim=-1)
+
+
+
+        cam_pred,pose_pred,shape_pred = self(img,joints_feat=joints_feat)
 
         mat_pose = []
         mat_pose.append(rot6d_to_rotmat(pose_pred[-1].reshape(-1,6)).reshape(-1,24,3,3))
@@ -131,16 +133,20 @@ class HMR2(nn.Module):
         
         joints_loss = criterion[1](res_pred.joints[:,:24,:],res_gt.joints[:,:24,:]).sum([1,2]).mean()
         loss_dict['joints_loss'] = joints_loss
+        loss = pose_loss + joints_loss
 
-        if self.cfg['model'].get('gtshape',False):
-            loss = pose_loss + joints_loss
-        else:
-            if  self.cfg['model'].get('with_shape_loss',True):
-                loss = pose_loss + shape_loss + joints_loss
-                loss_dict['shape_loss'] = shape_loss
-            else:
-                loss = pose_loss + joints_loss
-
+        if self.cfg['model'].get('with_shape_loss',True):
+            shape_loss = criterion[0](shape_pred[-1],shape_gt)
+            loss += shape_loss
+            loss_dict['shape_loss'] = shape_loss
+        
+        if self.cfg['model'].get('with_reprojection_loss',True):
+            pred_kp = orth_proj(res_pred.joints,cam_pred[-1])
+            #normalizing gt_kp to [-1,1]
+            gt_kp = gt_kp/(constants.IMG_RES/2) - 1.0
+            reprojection_loss = (criterion[1](pred_kp,gt_kp) * vis.unsqueeze(-1)).mean()
+            loss += reprojection_loss
+            loss_dict['reprojection_loss'] = reprojection_loss
 
         return loss, loss_dict
 
@@ -153,10 +159,19 @@ class HMR2(nn.Module):
         pose_gt = batch['pose']
         shape_gt = batch['shape']
 
-        if self.cfg['model'].get('gtshape',False):
-            _,pose_pred,shape_pred = self(img,shape=shape_gt)
-        else:
-            _,pose_pred,shape_pred = self(img)
+        with torch.no_grad():
+            base_smpl = self.base_smpl(global_orient=pose_gt.flatten(2,3)[:,:1,:],
+                                 body_pose=pose_gt.flatten(2,3)[:,1:,:],
+                                 betas=shape_gt,
+                                 pose2rot=False)
+            base_smpl_joints = base_smpl.joints[:,1:24,:] #has shape of [b,23,3], take all except the pelvis
+
+            parents = self.base_smpl.parents[1:].unsqueeze(-1).unsqueeze(0)# has shape of [1,23,1]
+            diff = base_smpl_joints - torch.take_along_dim(base_smpl.joints,parents,dim=1)
+
+            joints_feat = torch.linalg.norm(diff,dim=-1)
+
+        _,pose_pred,shape_pred = self(img,joints_feat=joints_feat)
 
         mat_pose = []
         mat_pose.append(rot6d_to_rotmat(pose_pred[-1].reshape(-1,6)).reshape(-1,24,3,3))
@@ -199,7 +214,7 @@ class HMR2(nn.Module):
                              betas=shape_pred,
                              pose2rot=False)
 
-        if pose_gt.ndim < 4:#some datasets return axis-angle
+        if pose_gt.ndim < 4:#some datasets(3dpw) return axis-angle
             res_gt = self.smpl_male(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
         else:#others return matrices
             res_gt = self.smpl(global_orient=pose_gt.flatten(2,3)[:,:1,:],
@@ -208,8 +223,6 @@ class HMR2(nn.Module):
                                  pose2rot=False)
 
         return res_pred,res_gt
-
-
 
 
     def get_optimizer(self):

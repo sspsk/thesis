@@ -148,7 +148,7 @@ class HMR_EFT(nn.Module):
                              betas=shape_pred,
                              pose2rot=False)
 
-        res_gt = self.smpl(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
+        res_gt = self.smpl_male(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
 
         return res_pred,res_gt
 

@@ -72,7 +72,10 @@ class HMR(nn.Module):
         else:
             self.encoder = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
             self.encoder.fc = nn.Identity()
-        self.smpl = get_smpl_model(use_feet_keypoints=True,use_hands=True,extra=True)
+        if cfg['model'].get('use_extra_smpl',False):
+            self.smpl = get_smpl_model(use_feet_keypoints=True,use_hands=True,extra=True)
+        else:
+            self.smpl = get_smpl_model()
         self.cfg=cfg
 
         
@@ -183,8 +186,8 @@ class HMR(nn.Module):
                              betas=shape_pred,
                              pose2rot=False)
 
-        if pose_gt.ndim < 4:#some datasets return axis-angle
-            res_gt = self.smpl(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
+        if pose_gt.ndim < 4:#some datasets(3dpw) return axis-angle
+            res_gt = self.smpl_male(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
         else:#others return matrices
             res_gt = self.smpl(global_orient=pose_gt.flatten(2,3)[:,:1,:],
                                  body_pose=pose_gt.flatten(2,3)[:,1:,:],
