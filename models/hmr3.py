@@ -199,11 +199,25 @@ class HMR3(nn.Module):
         pose_gt = batch['pose']
         shape_gt = batch['shape']
 
+        if pose_gt.ndim < 4:#some datasets(3dpw) return axis-angle
+            res_gt = self.smpl_male(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
+        else:#others return matrices
+            res_gt = self.base_smpl(global_orient=pose_gt.flatten(2,3)[:,:1,:],
+                                 body_pose=pose_gt.flatten(2,3)[:,1:,:],
+                                 betas=shape_gt,
+                                 pose2rot=False)
 
-        if self.cfg['model'].get('gtshape',False):
-            _,pose,shape = self(img,shape=shape_gt)
-        else:
-            _,pose,shape= self(img)
+        with torch.no_grad():
+
+            base_smpl_joints = res_gt.joints[:,1:24,:] #has shape of [b,23,3], take all except the pelvis
+
+            parents = self.base_smpl.parents[1:].unsqueeze(-1).unsqueeze(0)# has shape of [1,23,1]
+            diff = base_smpl_joints - torch.take_along_dim(res_gt.joints,parents,dim=1)
+
+            joints_feat = torch.linalg.norm(diff,dim=-1)
+
+
+        cam,pose,shape= self(img,joints_feat=joints_feat)
 
         pose_pred = rot6d_to_rotmat(pose[-1].reshape(-1,6)).reshape(-1,24,3,3).flatten(2,3)
         shape_pred = shape[-1]
@@ -214,13 +228,6 @@ class HMR3(nn.Module):
                              betas=shape_pred,
                              pose2rot=False)
 
-        if pose_gt.ndim < 4:#some datasets(3dpw) return axis-angle
-            res_gt = self.smpl_male(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
-        else:#others return matrices
-            res_gt = self.smpl(global_orient=pose_gt.flatten(2,3)[:,:1,:],
-                                 body_pose=pose_gt.flatten(2,3)[:,1:,:],
-                                 betas=shape_gt,
-                                 pose2rot=False)
 
         return res_pred,res_gt
 
