@@ -130,7 +130,7 @@ class HMR(nn.Module):
             pred_kp = orth_proj(res_pred.joints,cam_pred[-1])
             #normalizing gt_kp to [-1,1]
             gt_kp = gt_kp/(constants.IMG_RES/2) - 1.0
-            reprojection_loss = (criterion[1](pred_kp,gt_kp) * vis.unsqueeze(-1)).mean()
+            reprojection_loss = (criterion[1](pred_kp,gt_kp) * vis.unsqueeze(-1)).sum(-1).mean(-1).mean()
             loss += reprojection_loss
             loss_dict['reprojection_loss'] = reprojection_loss
 

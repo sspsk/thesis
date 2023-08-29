@@ -7,6 +7,7 @@ import json
 import argparse
 from smplx.lbs import vertices2joints
 import numpy as np
+from datetime import datetime
 
 
 #local imports
@@ -24,6 +25,7 @@ parser.add_argument('--config_file',type=str,default='exp_config.yml')
 parser.add_argument('--force',action='store_true',help='Force to begin experiment with uncommited changes')
 parser.add_argument('--type',default='best',help='Opt to eval a best/check/last checkpoint.')
 parser.add_argument('--eval_mpii',action='store_true',help='Eval on MPII(shape related experiments)')
+parser.add_argument('--comment',default=None)
 args = parser.parse_args()
 
 cfg = parse_config(args.config_file)
@@ -58,7 +60,8 @@ if checkpoint_path is not None:
 if epochs is not None:
     print("Epochs:",epochs)
 
-model.smpl_male = get_smpl_model(gender='male')
+gender = 'male'
+model.smpl_male = get_smpl_model(gender=gender)
 
 if torch.cuda.is_available() and cfg['training']['cuda']:
     DEVICE='cuda'
@@ -102,7 +105,19 @@ print()
 print("Reconstruction error:",sum(rec_error)/len(eval_dataset)) 
 
 results_path = os.path.join(cfg['metadata']['exp_dir'],cfg['metadata']['name'],'results.json')
+
+if os.path.exists(results_path):
+    with open(results_path,"r") as f:
+        data_to_save = json.load(f)
+else:
+    data_to_save = {}
+
+data_to_save[str(datetime.now())] = {'pampjpe':sum(rec_error)/len(eval_dataset),
+                                     'epochs': epochs,
+                                     'dataset': str(eval_dataset.__class__),
+                                     'gender': gender,
+                                     'comment': str(args.comment)}
 with open(results_path,'w') as f:
-    json.dump({'pampjpe':sum(rec_error)/len(eval_dataset)},f)
+    json.dump(data_to_save,f)
 
 print("Results saved at:",results_path)

@@ -100,7 +100,7 @@ with torch.no_grad():
 print()
 print("Reconstruction error:",parts_error/len(eval_dataset)) 
 
-results_path = os.path.join(cfg['metadata']['exp_dir'],cfg['metadata']['name'],'results.json')
+results_path = os.path.join(cfg['metadata']['exp_dir'],cfg['metadata']['name'],'per_joints_results.json')
 with open(results_path,'w') as f:
     json.dump({'pampjpe':(parts_error/len(eval_dataset)).tolist()},f)
 
