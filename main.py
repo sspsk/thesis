@@ -38,7 +38,7 @@ train_loader = DataLoader(train_dataset,batch_size=cfg['training']['bs'],shuffle
 log_print("Train Dataset length:",len(train_dataset),cfg=cfg)
 
 val_dataset = EFTDataset(datasets=['coco14_val'],is_train=False,cfg=data_cfg)
-val_loader = DataLoader(val_dataset,batch_size=cfg['training']['bs'],shuffle=False,pin_memory=True,num_workers=8)
+val_loader = DataLoader(val_dataset,batch_size=cfg['training']['bs'],shuffle=False,pin_memory=True,num_workers=8,drop_last=True)
 log_print("Val Dataset length:",len(val_dataset),cfg=cfg)
 
 if torch.cuda.is_available() and cfg['training']['cuda']:

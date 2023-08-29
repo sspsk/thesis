@@ -60,6 +60,7 @@ if checkpoint_path is not None:
 if epochs is not None:
     print("Epochs:",epochs)
 
+#hook on model a male smpl model
 gender = 'male'
 model.smpl_male = get_smpl_model(gender=gender)
 

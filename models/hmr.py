@@ -1,6 +1,6 @@
 import config
 import constants
-from data.utils import load_mean_parameters,rot6d_to_rotmat,orth_proj
+from data.utils import load_mean_parameters,rot6d_to_rotmat,orth_proj,reconstruction_error
 from models.smpl import get_smpl_model
 from models.backbone import CustomResNet
 
@@ -9,6 +9,7 @@ from torch.optim import Adam
 from torch import nn
 from torchvision.models import resnet50, ResNet50_Weights
 import numpy as np
+from smplx.lbs import vertices2joints
 
 class Regressor(nn.Module):
 
@@ -140,6 +141,10 @@ class HMR(nn.Module):
         
     def validation_step(self,batch,criterion):
         #assume that batch and model are on the same device
+
+        if not hasattr(self,'j36m_regressor'):
+            self.j36m_regressor= torch.from_numpy(np.load(config.JOINT_REGRESSOR_H36M)).to(dtype=torch.float32)
+        
         loss_dict = {}
 
         img = batch['img']
@@ -161,7 +166,16 @@ class HMR(nn.Module):
                              betas=shape_gt,
                              pose2rot=False)
         
-        loss = criterion[1](res_pred.joints,res_gt.joints).sum([1,2]).mean()
+        #loss = criterion[1](res_pred.joints,res_gt.joints).sum([1,2]).mean()
+        pred_vertices = res_pred.vertices   
+        pred_h36m_joints = vertices2joints(self.j36m_regressor.to(pred_vertices.device),pred_vertices)
+        pred_joints = pred_h36m_joints[:,constants.H36M_TO_J14,:]
+
+        gt_vertices = res_gt.vertices   
+        gt_h36m_joints = vertices2joints(self.j36m_regressor.to(pred_vertices.device),gt_vertices)
+        gt_joints = gt_h36m_joints[:,constants.H36M_TO_J14,:]
+
+        loss =  torch.tensor(reconstruction_error(pred_joints.cpu().numpy(),gt_joints.cpu().numpy(),reduction='mean'))
         loss_dict['joints_loss'] = loss
 
 
