@@ -205,7 +205,7 @@ class ProHMR(nn.Module):
             shape_loss_mode = shape_loss[:,0].mean()
             shape_loss_exp = shape_loss[:,1:].mean()
             loss += shape_loss_mode 
-            loss_dict['shape_loss'] = shape_loss
+            loss_dict['shape_loss_mode'] = shape_loss_mode
         
         if self.cfg['model'].get('with_reprojection_loss',True):
             pred_kp = orth_proj(res_pred.joints,cam) #has shape of [B*n_samples,49,2]
