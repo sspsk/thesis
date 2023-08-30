@@ -2,10 +2,12 @@ import torch
 import torch.nn as nn
 from torchvision.models import resnet50, ResNet50_Weights
 import numpy as np
+from torch.optim import Adam
+from smplx.lbs import vertices2joints
 
 import config
 import constants
-from data.utils import load_mean_parameters,rot6d_to_rotmat,orth_proj
+from data.utils import load_mean_parameters,rot6d_to_rotmat,orth_proj,reconstruction_error
 from models.flows import CondFlowBlock
 from models.backbone import CustomResNet
 from models.smpl import get_smpl_model
@@ -15,7 +17,7 @@ class ProHMR(nn.Module):
         super().__init__()
         self.feat_dim = 6*24#rot6d for 24 SMPL joints
         self.cond_dim=2048#the dim or last resnet layer
-        self.theta_order=config.get('theta_order','psc')
+        self.theta_order=cfg.get('theta_order','psc')
 
         theta_mean = load_mean_parameters(config.SMPL_MEAN_PARAMS,rot6d=True,order=self.theta_order)#load the real theta_mean
 
@@ -146,12 +148,13 @@ class ProHMR(nn.Module):
         B = img.shape[0]
 
         #convert pose to 6d from rotmat
-        rot6d_gt = pose_gt[:,:,:,:2].flatten(2,3)
+        rot6d_gt = pose_gt[:,:,:,:2].reshape(-1,144)
 
-        z,log_det,cam,shape,mode_pose,samples = self(img,pose_gt,n_samples=self.cfg.get('num_samples',3))
+
+        z,log_det,cam,shape,mode_pose,samples = self(img,rot6d_gt,n_samples=self.cfg.get('num_samples',3))
 
         _,log_prob = self.prob_criterion(z,log_det) 
-        loss = -log_prob
+        loss = -0.001*log_prob
 
         #samples has shape [b*n_samples-1,144]
         #mode_pose has shape [b,144]
@@ -159,27 +162,27 @@ class ProHMR(nn.Module):
         if samples is not None:
             n_samples = samples.shape[0]//B + 1
             shape = shape.unsqueeze(1).repeat(1,n_samples,1).reshape(-1,10)
+            cam = cam.unsqueeze(1).repeat(1,n_samples,1).reshape(-1,3)
             mode_pose = mode_pose.unsqueeze(1)
-            samples = samples.reshape(B,-1,self.feat_dim)
-            poses = torch.cat([mode_pose,samples],dim=1).reshape(-1,self.feat_dim) #has shape [B*num_samples,144]
+            poses = torch.cat([mode_pose,samples.reshape(B,-1,self.feat_dim)],dim=1).reshape(-1,self.feat_dim) #has shape [B*num_samples,144]
             pose_mat = rot6d_to_rotmat(poses.reshape(-1,6)).reshape(-1,24,3,3)
-        else:
-            pose_mat = rot6d_to_rotmat(mode_pose.reshape(-1,6)).reshape(-1,24,3,3)
-            
-        pose_loss = criterion[1](pose_mat,pose_gt).sum([1,2,3]).reshape(B,-1)#has shape of [B,n_samples]
-
-
-        pose_pred = pose_mat.flatten(2,3)#has shape of [B*n_samples,24,9]
-
-        if samples is not None:
-            n_samples = samples.shape[0]//B + 1
-            pose_gt = pose_gt.unsqueeze(1).repeat(1,n_samples,24,3,3).reshape(-1,24,3,3).flatten(2,3)
+            pose_gt = pose_gt.unsqueeze(1).repeat(1,n_samples,1,1,1).reshape(-1,24,3,3)
             shape_gt = shape_gt.unsqueeze(1).repeat(1,n_samples,1).reshape(-1,10)
         else:
-            pose_gt = pose_gt.flatten(2,3)
+            pose_mat = rot6d_to_rotmat(mode_pose.reshape(-1,6)).reshape(-1,24,3,3)
+
+
+
+        pose_loss = criterion[1](pose_mat,pose_gt).sum([1,2,3]).reshape(B,-1)#has shape of [B,n_samples]
+
+        pose_pred = pose_mat.flatten(2,3)#has shape of [B*n_samples,24,9]
+        pose_gt = pose_gt.flatten(2,3)
+
+
 
         res_pred = self.smpl(global_orient=pose_pred[:,:1,:],body_pose=pose_pred[:,1:,:],betas=shape,pose2rot=False)
         res_gt = self.smpl(global_orient=pose_gt[:,:1,:],body_pose=pose_gt[:,1:,:],betas=shape_gt,pose2rot=False)
+
 
         joints_loss = criterion[1](res_pred.joints,res_gt.joints).sum([1,2]).reshape(B,-1)#has shape of [B,n_samples]
 
@@ -198,8 +201,10 @@ class ProHMR(nn.Module):
         loss += pose_loss_mode + joints_loss_mode 
 
         if self.cfg['model'].get('with_shape_loss',True):
-            shape_loss = criterion[0](shape,shape_gt)
-            loss += shape_loss
+            shape_loss = criterion[1](shape,shape_gt).sum(-1).reshape(B,-1)
+            shape_loss_mode = shape_loss[:,0].mean()
+            shape_loss_exp = shape_loss[:,1:].mean()
+            loss += shape_loss_mode 
             loss_dict['shape_loss'] = shape_loss
         
         if self.cfg['model'].get('with_reprojection_loss',True):
@@ -209,8 +214,8 @@ class ProHMR(nn.Module):
 
             if samples is not None:
                 n_samples = samples.shape[0]//B + 1
-                gt_kp = gt_kp.unsqueeze(1).repeat(1,n_samples,1,1).reshape(B*n_samples,-1.2)
-                vis = vis.unsqueeze(1).repeat(1,n_samples,1).reshape(-1,2)
+                gt_kp = gt_kp.unsqueeze(1).repeat(1,n_samples,1,1).reshape(B*n_samples,-1,2)
+                vis = vis.unsqueeze(1).repeat(1,n_samples,1).reshape(B*n_samples,-1)
 
             reprojection_loss = (criterion[1](pred_kp,gt_kp) * vis.unsqueeze(-1)).sum([1,2]).reshape(B,-1) #has shape of [b,n_samples]
 
@@ -224,7 +229,76 @@ class ProHMR(nn.Module):
 
         return loss, loss_dict
 
+    def validation_step(self,batch,criterion):
+        #assume that batch and model are on the same device
+
+        if not hasattr(self,'j36m_regressor'):
+            self.j36m_regressor= torch.from_numpy(np.load(config.JOINT_REGRESSOR_H36M)).to(dtype=torch.float32)
+        
+        loss_dict = {}
+
+        img = batch['img']
+        pose_gt = batch['pose']
+        shape_gt = batch['shape']
+
+        rot6d_gt = pose_gt[:,:,:,:2].reshape(-1,144)
+
+        z,log_det,cam,shape,mode_pose,samples = self(img,rot6d_gt)
+
+        mat_pose = rot6d_to_rotmat(mode_pose.reshape(-1,6)).reshape(-1,24,3,3)
+
+        mat_pose = mat_pose.flatten(2,3)
+        pose_gt = pose_gt.flatten(2,3)
+
+        res_pred = self.smpl(global_orient=mat_pose[:,:1,:],
+                             body_pose=mat_pose[:,1:,:],
+                             betas=shape,
+                             pose2rot=False)
+
+        res_gt = self.smpl(global_orient=pose_gt[:,:1,:],
+                             body_pose=pose_gt[:,1:,:],
+                             betas=shape_gt,
+                             pose2rot=False)
+        
+        #loss = criterion[1](res_pred.joints,res_gt.joints).sum([1,2]).mean()
+        pred_vertices = res_pred.vertices   
+        pred_h36m_joints = vertices2joints(self.j36m_regressor.to(pred_vertices.device),pred_vertices)
+        pred_joints = pred_h36m_joints[:,constants.H36M_TO_J14,:]
+
+        gt_vertices = res_gt.vertices   
+        gt_h36m_joints = vertices2joints(self.j36m_regressor.to(pred_vertices.device),gt_vertices)
+        gt_joints = gt_h36m_joints[:,constants.H36M_TO_J14,:]
+
+        loss =  torch.tensor(reconstruction_error(pred_joints.cpu().numpy(),gt_joints.cpu().numpy(),reduction='mean'))
+        loss_dict['joints_loss'] = loss
 
 
+        return loss, loss_dict
+
+    def eval_step(self,batch):
+        #return the sum of error for the batch
+
+        img = batch['img']
+        pose_gt = batch['pose']
+        shape_gt = batch['shape']
+
+        mode_pose,shape,cam = self.inference(img)
+
+        pose_pred = rot6d_to_rotmat(mode_pose.reshape(-1,6)).reshape(-1,24,3,3).flatten(2,3)
+
+        res_pred = self.smpl(global_orient=pose_pred[:,:1,:],
+                             body_pose=pose_pred[:,1:,:],
+                             betas=shape,
+                             pose2rot=False)
+
+        if pose_gt.ndim < 4:#some datasets(3dpw) return axis-angle
+            res_gt = self.smpl_male(global_orient=pose_gt[:,:3],body_pose=pose_gt[:,3:],betas=shape_gt,pose2rot=True)
+        else:#others return matrices
+            res_gt = self.smpl(global_orient=pose_gt.flatten(2,3)[:,:1,:],
+                                 body_pose=pose_gt.flatten(2,3)[:,1:,:],
+                                 betas=shape_gt,
+                                 pose2rot=False)
+
+        return res_pred,res_gt
 
 
