@@ -4,6 +4,8 @@ import torch
 import sys
 from torch.nn import functional as F
 
+import constants
+
 def load_mean_parameters(filename,rot6d=False,order="psc"):
     """
     Theta has shape (1,85) where:
@@ -215,10 +217,15 @@ def kp_processing(kp,flip,trans):
     kp = np.pad(kp,((0,0),(0,1)),constant_values=1.0) #shape : [49,3]
 
     new_kp = trans @ kp.T #shape: [2,49]
+    new_kp = new_kp.T #shape: [49,2]
 
     if flip:
-        new_kp[0,:] = 223 - new_kp[0,:]
-    return new_kp.T
+        new_kp[:,0] = constants.IMG_RES - new_kp[:,0]
+        if num_joints == 49:
+            new_kp = new_kp[constants.J49_FLIP_PERM]
+        else:
+            new_kp = new_kp[constants.J24_FLIP_PERM]
+    return new_kp
 
 def orth_proj(X,camera):
     """

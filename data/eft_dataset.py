@@ -10,6 +10,7 @@ from torchvision.transforms import Normalize
 #local imports
 from data.utils import augm_params,rgb_processing,pose_processing,kp_processing
 import config
+import constants
 
 eft_annot_files = {
     'mpii':config.MPII_ANNOT_FILE,
@@ -73,6 +74,11 @@ class EFTDataset(Dataset):
 
         keypoints2d = np.array(self.data[dataset_idx][sample_idx]['gt_keypoint_2d'])
         visibility2d = torch.from_numpy(keypoints2d[:,2]).to(torch.float32)
+        if flip:
+            if visibility2d.shape[0] == 49:
+                visibility2d = visibility2d[constants.J49_FLIP_PERM]
+            else:
+                visibility2d = visibility2d[constants.J24_FLIP_PERM]
         keypoints2d = torch.from_numpy(kp_processing(keypoints2d[:,:2],flip,M)).to(torch.float32)
 
         pose_params = np.array(deepcopy(self.data[dataset_idx][sample_idx]['parm_pose']))
