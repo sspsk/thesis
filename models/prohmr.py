@@ -155,6 +155,7 @@ class ProHMR(nn.Module):
 
         _,log_prob = self.prob_criterion(z,log_det) 
         loss = -0.001*log_prob
+        loss_dict['nll'] = -log_prob
 
         #samples has shape [b*n_samples-1,144]
         #mode_pose has shape [b,144]
@@ -199,6 +200,8 @@ class ProHMR(nn.Module):
         loss_dict['joints_loss_exp'] = joints_loss_exp
 
         loss += pose_loss_mode + joints_loss_mode 
+        if self.cfg['model'].get('with_exp_losses',True):
+            loss += pose_loss_exp + joints_loss_exp
 
         if self.cfg['model'].get('with_shape_loss',True):
             shape_loss = criterion[1](shape,shape_gt).sum(-1).reshape(B,-1)
@@ -222,7 +225,9 @@ class ProHMR(nn.Module):
             reprojection_loss_mode = reprojection_loss[:,0].mean()
             reprojection_loss_exp = reprojection_loss[:,1:].mean()
 
-            loss += reprojection_loss_mode + reprojection_loss_exp
+            loss += reprojection_loss_mode
+            if self.cfg['model'].get('with_exp_losses',True):
+                loss += reprojection_loss_exp
 
             loss_dict['reprojection_loss_mode'] = reprojection_loss_mode
             loss_dict['reprojection_loss_exp'] = reprojection_loss_exp
