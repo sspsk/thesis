@@ -12,7 +12,8 @@ def display_model(
         ax=None,
         batch_idx=0,
         show=True,
-        savepath=None):
+        savepath=None,
+        alpha=0.1):
     """
     Displays mesh batch_idx in batch of model_info, model_info as returned by
     generate_random_model
@@ -27,7 +28,7 @@ def display_model(
     if model_faces is None:
         ax.scatter(verts[:, 0], verts[:, 1], verts[:, 2], alpha=0.1)
     else:
-        mesh = Poly3DCollection(verts[model_faces], alpha=0.1)
+        mesh = Poly3DCollection(verts[model_faces], alpha=alpha)
         face_color = (141 / 255, 184 / 255, 226 / 255)
         edge_color = (50 / 255, 50 / 255, 50 / 255)
         mesh.set_edgecolor(edge_color)

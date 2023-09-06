@@ -164,3 +164,4 @@ dogging/__pycache__/
 config.py
 *.yml
 temp/
+*.png
