@@ -218,8 +218,12 @@ class HMR(nn.Module):
     
     def get_criterion(self):
         #can be a single criterion or a list of them
-        criterion1 = nn.MSELoss()
-        criterion2 = nn.MSELoss(reduction='none')
+        if self.cfg['model'].get('l1_loss',False):
+            criterion1 = nn.L1Loss()
+            criterion2 = nn.L1Loss(reduction='none')
+        else:
+            criterion1 = nn.MSELoss()
+            criterion2 = nn.MSELoss(reduction='none')
         return [criterion1,criterion2]
     
     
