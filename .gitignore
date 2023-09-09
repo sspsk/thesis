@@ -165,3 +165,4 @@ config.py
 *.yml
 temp/
 *.png
+images/
