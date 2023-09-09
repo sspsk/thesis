@@ -15,13 +15,16 @@ import constants
 eft_annot_files = {
     'mpii':config.MPII_ANNOT_FILE,
     'coco14':config.COCO14_ANNOT_FILE,
-    'coco14_val': config.COCO14_VAL_ANNOT_FILE
+    'coco14_val': config.COCO14_VAL_ANNOT_FILE,
+    'mpiinf':config.MPIINF_EFT_ANNOT_FILE
+
 }
 
 eft_img_folders= {
     'mpii': config.MPII_IMAGES_FOLDER,
     'coco14': config.COCO14_IMAGES_FOLDER,
-    'coco14_val': config.COCO14_VAL_IMAGES_FOLDER
+    'coco14_val': config.COCO14_VAL_IMAGES_FOLDER,
+    'mpiinf': config.MPIINF_IMAGE_FOLDER
 }
 
 class EFTDataset(Dataset):
@@ -82,7 +85,7 @@ class EFTDataset(Dataset):
         keypoints2d = torch.from_numpy(kp_processing(keypoints2d[:,:2],flip,M)).to(torch.float32)
 
         pose_params = np.array(deepcopy(self.data[dataset_idx][sample_idx]['parm_pose']))
-        pose_params = pose_processing(pose_params,rot,flip,rotmat=True)#1 cause i have change the global rotation
+        pose_params = pose_processing(pose_params,rot,flip,rotmat=True)
 
         pose_params = torch.tensor(pose_params,dtype=torch.float32) 
         shape_params = torch.tensor(self.data[dataset_idx][sample_idx]['parm_shape'],dtype=torch.float32)

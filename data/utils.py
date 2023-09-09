@@ -6,6 +6,34 @@ from torch.nn import functional as F
 
 import constants
 
+def rodrigues_formula(pose):
+    """
+    input:
+    -pose (B,n_joints*3) the axis angle rotation representation(three numbers) for each joint
+    output:
+    -the rotations transformed into flatten matrix representation. Output shape: (B,n_joints,3,3)
+    """
+    bs = pose.shape[0]
+    n_joints = pose.shape[1]//3
+    split_pose = pose.reshape(bs,-1,3)
+
+    theta = torch.linalg.norm(split_pose,axis=-1)# shape(bs,n_joints)
+
+    #unit = split_pose / theta.unsqueeze(-1) #shape (bs,n_joints,3)
+    unit = torch.nn.functional.normalize(split_pose,dim=-1)
+
+    K = torch.zeros(bs,n_joints,3,3) 
+
+    K[:,:,0,1] = - unit[:,:,2]
+    K[:,:,0,2] = unit[:,:,1]
+    K[:,:,1,0] = unit[:,:,2]
+    K[:,:,1,2] = - unit[:,:,0]
+    K[:,:,2,0] = - unit[:,:,1]
+    K[:,:,2,1] = unit[:,:,0]
+
+    R = torch.eye(3) + torch.sin(theta).unsqueeze(-1).unsqueeze(-1)*K + (1-torch.cos(theta).unsqueeze(-1).unsqueeze(-1))*(K@K)
+    return R
+
 def load_mean_parameters(filename,rot6d=False,order="psc"):
     """
     Theta has shape (1,85) where:
