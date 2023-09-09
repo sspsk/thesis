@@ -166,3 +166,4 @@ config.py
 temp/
 *.png
 images/
+*.npy
