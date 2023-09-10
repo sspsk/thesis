@@ -8,7 +8,7 @@ from copy import deepcopy
 from torchvision.transforms import Normalize
 
 #local imports
-from data.utils import augm_params,rgb_processing,pose_processing,kp_processing
+from data.utils import augm_params,rgb_processing,pose_processing,kp_processing,kp3d_processing
 import config
 import constants
 
@@ -60,7 +60,7 @@ class EFTDataset(Dataset):
         assert dataset_idx < len(self.data)
         sample_idx = idx - self.data_lens[:dataset_idx].sum()
         assert sample_idx < len(self.data[dataset_idx])
-         
+
         idx_filename = self.data[dataset_idx][sample_idx]['imageName']
 
         scale = deepcopy(self.data[dataset_idx][sample_idx]['bbox_scale'])
@@ -84,6 +84,18 @@ class EFTDataset(Dataset):
                 visibility2d = visibility2d[constants.J24_FLIP_PERM]
         keypoints2d = torch.from_numpy(kp_processing(keypoints2d[:,:2],flip,M)).to(torch.float32)
 
+        if 'gt_keypoint_3d' in self.data[dataset_idx][sample_idx]:
+            keypoints3d = np.array(self.data[dataset_idx][sample_idx]['gt_keypoint_3d'])
+            visibility3d = torch.from_numpy(keypoints3d[:,3]).to(torch.float32)
+            if flip:
+                visibility3d = visibility3d[constants.J24_FLIP_PERM]
+            keypoints3d = torch.from_numpy(kp3d_processing(keypoints3d[:,:3],flip,rot)).to(torch.float32)
+        else:
+            keypoints3d = torch.zeros(24,3)
+            visibility3d = torch.zeros(2,1)
+
+        has_smpl = self.data[dataset_idx][sample_idx].get('has_smpl',0.0)
+
         pose_params = np.array(deepcopy(self.data[dataset_idx][sample_idx]['parm_pose']))
         pose_params = pose_processing(pose_params,rot,flip,rotmat=True)
 
@@ -98,5 +110,8 @@ class EFTDataset(Dataset):
         ret_dict['shape']=shape_params
         ret_dict['keypoints2d'] = keypoints2d
         ret_dict['visibility2d'] = visibility2d
+        ret_dict['keypoints3d'] = keypoints3d
+        ret_dict['visibility3d'] = visibility3d
+        ret_dict['has_smpl'] = has_smpl
 
         return  ret_dict

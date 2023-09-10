@@ -255,6 +255,27 @@ def kp_processing(kp,flip,trans):
             new_kp = new_kp[constants.J24_FLIP_PERM]
     return new_kp
 
+def kp3d_processing(kp3d,flip,rot):
+    '''
+    we dont need to do something with scale, its a camera problem
+    but we do care about flip and rotation.
+    '''
+
+    #rotate joints
+    if rot != 0.0:
+        theta = -np.deg2rad(rot)#minus because i use the rotation matrix formula for the positive z axis
+        R = np.array([[np.cos(theta),-np.sin(theta),0],[np.sin(theta),np.cos(theta),0],[0,0,1]])
+        joints = kp3d@R.T
+    else:
+        joints = kp3d
+
+    #flip
+    if flip:
+        joints[:,0] = -joints[:,0] #mirror with respect to the x=0 plane
+        joints = joints[constants.J24_FLIP_PERM]#change the order(e.g. right hand is now left hand)
+
+    return joints
+
 def orth_proj(X,camera):
     """
       input:

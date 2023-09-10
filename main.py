@@ -1,6 +1,7 @@
 import argparse
 import torch
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 import sys
 import os
 import numpy as np
@@ -29,6 +30,8 @@ parser.add_argument('--force',action='store_true',help='Force to begin experimen
 args = parser.parse_args()
 
 cfg,curr_exp_dir =  begin_experiment(args.config_file,force=args.force)
+
+summary_writer = SummaryWriter(os.path.join(cfg['metadata']['exp_dir'],'board_logs',cfg['metadata']['name']))
 
 data_cfg = cfg['data']
 datasets = data_cfg['datasets']
@@ -118,10 +121,12 @@ for ep in range(epochs_done+1,epochs_done + 1+ epochs):
             log_print("Epoch: {0}, {1}/{2}, Loss: {3}".format(ep,batch_num,len(train_loader),train_running_loss/batch_num),end=" ",cfg=cfg)
             for key in loss_dict:
                 log_print("{0}: {1}".format(key,loss_dict[key]),end=" ",cfg=cfg)
+                summary_writer.add_scalar('Training/Iter/'+key,loss_dict[key],(ep-1)*len(train_loader) + batch_num)
             log_print(cfg=cfg)
 
     train_loss = train_running_loss/batch_num
     log_print("Epoch {0}: Train Loss: {1}".format(ep,train_loss),cfg=cfg)
+    summary_writer.add_scalar('Training/Epoch/Loss',train_loss,ep)
 
     model.eval()
     val_running_loss = 0.0
@@ -144,6 +149,7 @@ for ep in range(epochs_done+1,epochs_done + 1+ epochs):
     val_loss = val_running_loss/batch_num 
     log_print(cfg=cfg)
     log_print("Epoch {0}: Val Loss: {1}".format(ep,val_loss),cfg=cfg)
+    summary_writer.add_scalar('Validation/Epoch/Loss',val_loss,ep)
 
     if best_val_loss > val_loss or ep%10 == 0:
 
