@@ -167,3 +167,4 @@ temp/
 *.png
 images/
 *.npy
+polygons.ipynb
