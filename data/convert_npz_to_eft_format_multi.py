@@ -90,7 +90,7 @@ if __name__=='__main__':
     with Pool(4) as p:
         new_data = list(tqdm(p.imap(make_dict,list(range(datalen))),total=datalen))
 
-    outfile = '/gpu-data2/skar/MPIINF/multi_mpiinf-eft.json'
+    outfile = '/gpu-data/skar/MPIINF/multi_mpiinf-eft.json'
     print("Saving json file at {0}....".format(outfile))
     with open(outfile,'w') as f:
         json.dump({'data':new_data},f)
